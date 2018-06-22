@@ -12,6 +12,7 @@ build-type: Simple
 cabal-version: >=1.10
 extra-source-files:
    README.md
+   retrieve_data.hs
    retrieve_data.sh
 data-files:
    data/*.png
