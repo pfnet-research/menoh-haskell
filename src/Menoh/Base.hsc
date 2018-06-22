@@ -7,7 +7,7 @@ import Foreign
 import Foreign.C
 
 #include <menoh/menoh.h>
-#include <menoh/version.hpp>
+#include <menoh/version.h>
 
 type MenohDType = #type menoh_dtype
 
