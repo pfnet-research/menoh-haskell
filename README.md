@@ -1,7 +1,7 @@
 # menoh-haskell
 
 [![Hackage](https://img.shields.io/hackage/v/menoh.svg)](https://hackage.haskell.org/package/menoh)
-[![Hackage Deps](https://img.shields.io/hackage-deps/v/menoh.svg)](http://packdeps.haskellers.com/reverse/menoh)
+[![Hackage Deps](https://img.shields.io/hackage-deps/v/menoh.svg)](https://packdeps.haskellers.com/feed?needle=menoh)
 
 Haskell binding for [Menoh](https://github.com/pfnet-research/menoh/) DNN inference library.
 
