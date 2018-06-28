@@ -1,5 +1,6 @@
 {-# OPTIONS_GHC -Wall #-}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 -----------------------------------------------------------------------------
@@ -94,6 +95,7 @@ module Menoh
   , buildModelWithConfig
   ) where
 
+import Control.Applicative
 import Control.Concurrent
 import Control.Monad
 import Control.Monad.Trans.Control (MonadBaseControl, liftBaseOp)
@@ -103,6 +105,7 @@ import qualified Data.Aeson as J
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BL
 import Data.Proxy
+import Data.Typeable
 import qualified Data.Vector.Storable as VS
 import qualified Data.Vector.Storable.Mutable as VSM
 import qualified Data.Vector.Generic as VG
@@ -137,7 +140,7 @@ data Error
   | ErrorFailedToConfigureOperator String
   | ErrorBackendError String
   | ErrorSameNamedVariableAlreadyExist String
-  deriving (Eq, Ord, Show, Read)
+  deriving (Eq, Ord, Show, Read, Typeable)
 
 instance Exception Error
 
@@ -551,7 +554,11 @@ makeModelWithConfig vpt model_data backend_name backend_config = liftIO $ do
 
 -- | Menoh version which was supplied on compilation time via CPP macro.
 version :: Version
+#if MIN_VERSION_base(4,8,0)
 version = makeVersion [Base.menoh_major_version, Base.menoh_minor_version, Base.menoh_patch_version]
+#else
+version = Version [Base.menoh_major_version, Base.menoh_minor_version, Base.menoh_patch_version] []
+#endif
 
 -- | Version of this Haskell binding. (Not the version of /Menoh/ itself)
 bindingVersion :: Version
