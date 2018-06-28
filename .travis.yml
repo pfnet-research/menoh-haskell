@@ -1,0 +1,61 @@
+sudo: required
+dist: trusty
+
+# Do not choose a language; we provide our own build tools.
+language: generic
+
+addons:
+  apt:
+    sources:
+      - ubuntu-toolchain-r-test
+      - sourceline: 'ppa:maarten-fonville/protobuf'
+    packages:
+      - libgmp-dev
+      - gcc-7
+      - g++-7
+      - cmake-data
+      - cmake
+      - libopencv-dev
+      - libprotobuf-dev
+      - protobuf-compiler
+
+matrix:
+  include:
+    - env: STACK_YAML=stack.yaml
+      compiler: ": #GHC 8.2.2"
+
+env:
+  global:
+    - MKL_DNN_REV: v0.14
+    - MKL_DNN_INSALL_SUFFIX: -1.14
+    - MENOH_REV: 28cb5770a97b118aafcfa8fab48b7ad49eb33c99
+    - MENOH_INSALL_SUFFIX: -28cb577
+
+# Caching so the next build will be fast too.
+cache:
+  directories:
+  - $HOME/.stack
+  - $HOME/mkl-dnn${MKL_DNN_INSALL_SUFFIX}
+  - $HOME/menoh${MENOH_INSALL_SUFFIX}
+
+before_install:
+# Download and unpack the stack executable
+- mkdir -p $HOME/.local/bin
+- export PATH=$HOME/.local/bin:$PATH
+- |
+  if [ `uname` = "Darwin" ]; then
+    travis_retry curl -L https://www.stackage.org/stack/osx-x86_64 | tar xz --strip-components=1 -C ~/.local/bin '*/stack'
+  else
+    travis_retry curl -L https://www.stackage.org/stack/linux-x86_64 | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'
+  fi
+
+install:
+# Build dependencies
+- bash .travis/install_mkldnn.sh
+- bash .travis/install_menoh.sh
+- export PKG_CONFIG_PATH=$HOME/menoh${MENOH_INSALL_SUFFIX}/share/pkgconfig:$PKG_CONFIG_PATH
+- stack --jobs 2 --no-terminal --install-ghc build --test --bench --only-dependencies $FLAGS
+
+script:
+# Build the package, its tests, and its docs and run the tests
+- stack --jobs 2 --no-terminal test --bench --no-run-benchmarks $FLAGS
