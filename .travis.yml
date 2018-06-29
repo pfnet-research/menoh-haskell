@@ -60,6 +60,7 @@ install:
 - bash .travis/install_mkldnn.sh
 - bash .travis/install_menoh.sh
 - export PKG_CONFIG_PATH=$HOME/menoh${MENOH_INSALL_SUFFIX}/share/pkgconfig:$PKG_CONFIG_PATH
+- export LD_LIBRARY_PATH=$HOME/menoh${MENOH_INSALL_SUFFIX}/lib:$HOME/mkl-dnn${MKL_DNN_INSALL_SUFFIX}/lib:$LD_LIBRARY_PATH
 - stack --jobs 2 --no-terminal --install-ghc build --test --bench --only-dependencies $FLAGS
 
 script:
