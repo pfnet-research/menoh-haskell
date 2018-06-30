@@ -40,6 +40,25 @@
 -- 7. Retrieve the result data. This can be done conveniently using 'readBufferToVector'
 --    or 'readBufferToStorableVector'.
 --
+--
+-- = Note on thread safety
+--
+-- TL;DR: If you want to use Menoh from multiple haskell threads, you need to
+-- use /threaded/ RTS by supplying @-threaded@ option to GHC.
+--
+-- Menoh uses thread local storage (TLS) for storing error information, and
+-- the only way to use TLS safely is to use in /bound/ threads
+-- (see "Control.Concurrent#boundthreads").
+--
+-- * In /threaded RTS/ (i.e. 'rtsSupportsBoundThreads' is True), this module
+--   runs computation in bound threads by using 'runInBoundThread'. (If the
+--   calling thread is not bound, 'runInBoundThread' create a bound thread
+--   temporarily and run the computation inside it).
+--
+-- * In /non-threaded RTS/, this module /does not/ use 'runInBoundThread' and
+--   is therefore unsafe to use from multiple haskell threads. Using non-threaded
+--   RTS is allowed for the sake of (e.g. running in GHCi) despite its its unsafety.
+--
 -----------------------------------------------------------------------------
 module Menoh
   (
