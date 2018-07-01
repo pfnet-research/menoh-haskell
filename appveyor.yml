@@ -1,0 +1,31 @@
+platform:
+- x64
+
+environment:
+  global:
+    STACK_ROOT: "c:\\sr"
+
+cache:
+- "c:\\sr" # stack root, short paths == less problems
+
+install:
+- set PATH=C:\msys64\mingw64\bin;C:\msys64\usr\bin;%PATH%
+- pacman -S --needed --noconfirm mingw-w64-x86_64-ca-certificates
+- set SSL_CERT_FILE=C:\msys64\mingw64\ssl\cert.pem
+- set SSL_CERT_DIR=C:\msys64\mingw64\ssl\certs
+
+- curl -omingw-w64-x86_64-mkl-dnn-0.14-3-x86_64.pkg.tar.xz -L https://www.dropbox.com/s/7e35prevov1ngij/mingw-w64-x86_64-mkl-dnn-0.14-3-x86_64.pkg.tar.xz?dl=1
+- pacman -U --noconfirm mingw-w64-x86_64-mkl-dnn-0.14-3-x86_64.pkg.tar.xz
+- curl -omingw-w64-x86_64-menoh-1.0.1-1-any.pkg.tar.xz -L https://www.dropbox.com/s/mtc93b0khhm0wuo/mingw-w64-x86_64-menoh-1.0.1-1-any.pkg.tar.xz?dl=1
+- pacman -U --noconfirm mingw-w64-x86_64-menoh-1.0.1-1-any.pkg.tar.xz
+
+- curl -ostack.zip -L http://www.stackage.org/stack/windows-x86_64
+- 7z x stack.zip stack.exe
+- stack setup > nul
+
+build_script:
+- echo "" | stack --no-terminal build --test --no-run-tests
+
+test_script:
+- echo "" | stack --no-terminal test
+- stack exec mnist_example
