@@ -4,22 +4,38 @@ platform:
 environment:
   global:
     STACK_ROOT: "c:\\sr"
+  matrix:
+    - TARGET: mingw
+    - TARGET: msvc
 
 cache:
 - "c:\\sr" # stack root, short paths == less problems
 
 install:
-- set PATH=C:\msys64\mingw64\bin;C:\msys64\usr\bin;%PATH%
-- pacman -S --needed --noconfirm mingw-w64-x86_64-ca-certificates
 - set SSL_CERT_FILE=C:\msys64\mingw64\ssl\cert.pem
 - set SSL_CERT_DIR=C:\msys64\mingw64\ssl\certs
+# Some conditional statements are splited to avoid "\Microsoft was unexpected at this time.” error.
+# https://support.microsoft.com/ja-jp/help/2524009/error-running-command-shell-scripts-that-include-parentheses
+- if [%TARGET%]==[mingw] set PATH=C:\msys64\mingw64\bin;C:\msys64\usr\bin;%PATH%
+- if [%TARGET%]==[msvc] set PATH=C:\msys64\mingw64\bin;%PATH%
+- if [%TARGET%]==[mingw] (
+    curl -omingw-w64-x86_64-mkl-dnn-0.14-3-x86_64.pkg.tar.xz -L https://www.dropbox.com/s/7e35prevov1ngij/mingw-w64-x86_64-mkl-dnn-0.14-3-x86_64.pkg.tar.xz?dl=1 &&
+    pacman -U --noconfirm mingw-w64-x86_64-mkl-dnn-0.14-3-x86_64.pkg.tar.xz &&
+    curl -omingw-w64-x86_64-menoh-1.0.1-1-any.pkg.tar.xz -L https://www.dropbox.com/s/mtc93b0khhm0wuo/mingw-w64-x86_64-menoh-1.0.1-1-any.pkg.tar.xz?dl=1 &&
+    pacman -U --noconfirm mingw-w64-x86_64-menoh-1.0.1-1-any.pkg.tar.xz
+  ) else (
+    curl -omenoh_prebuild_win_v1.0.1.zip -L --insecure https://github.com/pfnet-research/menoh/releases/download/v1.0.1/menoh_prebuild_win_v1.0.1.zip &&
+    7z x menoh_prebuild_win_v1.0.1.zip &&
+    curl -omklml_win_2018.0.3.20180406.zip -L --insecure https://github.com/intel/mkl-dnn/releases/download/v0.14/mklml_win_2018.0.3.20180406.zip &&
+    7z x mklml_win_2018.0.3.20180406.zip &&
+    copy mklml_win_2018.0.3.20180406\lib\libiomp5md.dll menoh_prebuild_win_v1.0.1\bin &&
+    md menoh_prebuild_win_v1.0.1\share\pkgconfig &&
+    copy appveyor\menoh.pc menoh_prebuild_win_v1.0.1\share\pkgconfig\
+  )
+- if [%TARGET%]==[msvc] set PKG_CONFIG_PATH=c:\projects\menoh-haskell\menoh_prebuild_win_v1.0.1\share\pkgconfig;%PKG_CONFIG_PATH%
+- if [%TARGET%]==[msvc] set PATH=c:\projects\menoh-haskell\menoh_prebuild_win_v1.0.1\bin;%PATH%
 
-- curl -omingw-w64-x86_64-mkl-dnn-0.14-3-x86_64.pkg.tar.xz -L https://www.dropbox.com/s/7e35prevov1ngij/mingw-w64-x86_64-mkl-dnn-0.14-3-x86_64.pkg.tar.xz?dl=1
-- pacman -U --noconfirm mingw-w64-x86_64-mkl-dnn-0.14-3-x86_64.pkg.tar.xz
-- curl -omingw-w64-x86_64-menoh-1.0.1-1-any.pkg.tar.xz -L https://www.dropbox.com/s/mtc93b0khhm0wuo/mingw-w64-x86_64-menoh-1.0.1-1-any.pkg.tar.xz?dl=1
-- pacman -U --noconfirm mingw-w64-x86_64-menoh-1.0.1-1-any.pkg.tar.xz
-
-- curl -ostack.zip -L http://www.stackage.org/stack/windows-x86_64
+- curl -ostack.zip -L --insecure http://www.stackage.org/stack/windows-x86_64
 - 7z x stack.zip stack.exe
 - stack setup > nul
 
