@@ -2,6 +2,8 @@
 
 [![Hackage](https://img.shields.io/hackage/v/menoh.svg)](https://hackage.haskell.org/package/menoh)
 [![Hackage Deps](https://img.shields.io/hackage-deps/v/menoh.svg)](https://packdeps.haskellers.com/feed?needle=menoh)
+[![Build Status (Travis CI)](https://travis-ci.org/pfnet-research/menoh-haskell.svg?branch=master)](https://travis-ci.org/pfnet-research/menoh-haskell)
+[![Build Status (AppVeyor)](https://ci.appveyor.com/api/projects/status/x4yicemyr55cj6na/branch/master?svg=true)](https://ci.appveyor.com/project/pfnet-research/menoh-haskell/branch/master)
 
 Haskell binding for [Menoh](https://github.com/pfnet-research/menoh/) DNN inference library.
 
