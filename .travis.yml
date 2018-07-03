@@ -34,8 +34,8 @@ env:
   global:
     - MKL_DNN_REV: v0.14
     - MKL_DNN_INSALL_SUFFIX: -1.14
-    - MENOH_REV: 28cb5770a97b118aafcfa8fab48b7ad49eb33c99
-    - MENOH_INSALL_SUFFIX: -28cb577
+    - MENOH_REV: v1.0.2
+    - MENOH_INSALL_SUFFIX: -1.0.2
 
 # Caching so the next build will be fast too.
 cache:

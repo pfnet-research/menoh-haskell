@@ -21,8 +21,8 @@ install:
 - if [%TARGET%]==[mingw] (
     curl -omingw-w64-x86_64-mkl-dnn-0.14-3-x86_64.pkg.tar.xz -L https://www.dropbox.com/s/7e35prevov1ngij/mingw-w64-x86_64-mkl-dnn-0.14-3-x86_64.pkg.tar.xz?dl=1 &&
     pacman -U --noconfirm mingw-w64-x86_64-mkl-dnn-0.14-3-x86_64.pkg.tar.xz &&
-    curl -omingw-w64-x86_64-menoh-1.0.1-1-any.pkg.tar.xz -L https://www.dropbox.com/s/mtc93b0khhm0wuo/mingw-w64-x86_64-menoh-1.0.1-1-any.pkg.tar.xz?dl=1 &&
-    pacman -U --noconfirm mingw-w64-x86_64-menoh-1.0.1-1-any.pkg.tar.xz
+    curl -omingw-w64-x86_64-menoh-1.0.2-1-any.pkg.tar.xz -L https://www.dropbox.com/s/s6r5uqfretk0ha3/mingw-w64-x86_64-menoh-1.0.2-1-any.pkg.tar.xz?dl=1 &&
+    pacman -U --noconfirm mingw-w64-x86_64-menoh-1.0.2-1-any.pkg.tar.xz
   ) else (
     curl -omenoh_prebuild_win_v1.0.2.zip -L --insecure https://github.com/pfnet-research/menoh/releases/download/v1.0.2/menoh_prebuild_win_v1.0.2.zip &&
     7z x menoh_prebuild_win_v1.0.2.zip
