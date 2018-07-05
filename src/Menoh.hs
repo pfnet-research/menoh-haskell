@@ -345,7 +345,7 @@ makeVariableProfileTable
   -> [(String, DType)]        -- ^ required output name list with dtypes
   -> ModelData                -- ^ model data
   -> m VariableProfileTable
-makeVariableProfileTable input_name_and_dims_pair_list required_output_name_list model_data = liftIO $ do
+makeVariableProfileTable input_name_and_dims_pair_list required_output_name_list model_data = liftIO $ runInBoundThread' $ do
   b <- makeVariableProfileTableBuilder
   forM_ input_name_and_dims_pair_list $ \(name,dtype,dims) -> do
     addInputProfileDims b name dtype dims
@@ -366,7 +366,7 @@ vptGetDType (VariableProfileTable vpt) name = liftIO $
 --
 -- Select variable name and get its 'Dims'.
 vptGetDims :: MonadIO m => VariableProfileTable -> String -> m Dims
-vptGetDims (VariableProfileTable vpt) name = liftIO $
+vptGetDims (VariableProfileTable vpt) name = liftIO $ runInBoundThread' $
   withForeignPtr vpt $ \vpt' -> withCString name $ \name' -> alloca $ \ret -> do
     runMenoh $ Base.menoh_variable_profile_table_get_dims_size vpt' name' ret
     size <- peek ret
@@ -455,7 +455,7 @@ getDType (Model m) name = liftIO $ do
 
 -- | Get 'Dims' of target variable.
 getDims :: MonadIO m => Model -> String -> m Dims
-getDims (Model m) name = liftIO $ do
+getDims (Model m) name = liftIO $ runInBoundThread' $ do
   withForeignPtr m $ \m' -> withCString name $ \name' -> alloca $ \ret -> do
     runMenoh $ Base.menoh_model_get_variable_dims_size m' name' ret
     size <- peek ret
