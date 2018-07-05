@@ -36,16 +36,16 @@ matrix:
 env:
   global:
     - MKL_DNN_REV: v0.14
-    - MKL_DNN_INSALL_SUFFIX: -1.14
+    - MKL_DNN_INSTALL_SUFFIX: -1.14
     - MENOH_REV: v1.0.2
-    - MENOH_INSALL_SUFFIX: -1.0.2
+    - MENOH_INSTALL_SUFFIX: -1.0.2
 
 # Caching so the next build will be fast too.
 cache:
   directories:
   - $HOME/.stack
-  - $HOME/mkl-dnn${MKL_DNN_INSALL_SUFFIX}
-  - $HOME/menoh${MENOH_INSALL_SUFFIX}
+  - $HOME/mkl-dnn${MKL_DNN_INSTALL_SUFFIX}
+  - $HOME/menoh${MENOH_INSTALL_SUFFIX}
 
 before_install:
 # Download and unpack the stack executable
@@ -70,8 +70,8 @@ install:
     bash .travis/install_mkldnn.sh
   fi
 - bash .travis/install_menoh.sh
-- export PKG_CONFIG_PATH=$HOME/menoh${MENOH_INSALL_SUFFIX}/share/pkgconfig:$PKG_CONFIG_PATH
-- export LD_LIBRARY_PATH=$HOME/menoh${MENOH_INSALL_SUFFIX}/lib:$HOME/mkl-dnn${MKL_DNN_INSALL_SUFFIX}/lib:$LD_LIBRARY_PATH
+- export PKG_CONFIG_PATH=$HOME/menoh${MENOH_INSTALL_SUFFIX}/share/pkgconfig:$PKG_CONFIG_PATH
+- export LD_LIBRARY_PATH=$HOME/menoh${MENOH_INSTALL_SUFFIX}/lib:$HOME/mkl-dnn${MKL_DNN_INSTALL_SUFFIX}/lib:$LD_LIBRARY_PATH
 - stack --jobs 2 --no-terminal --install-ghc build --test --bench --only-dependencies $FLAGS
 
 script:
