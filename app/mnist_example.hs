@@ -69,13 +69,13 @@ main = do
   model <- makeModel vpt model_data "mkldnn"
 
   -- Copy input image data to model's input array
-  writeBufferFromStorableVector model mnist_in_name images
+  writeBuffer model mnist_in_name images
 
   -- Run inference
   run model
 
   -- Get output
-  (v :: V.Vector Float) <- readBufferToVector model mnist_out_name
+  (v :: V.Vector Float) <- readBuffer model mnist_out_name
   forM_ (zip [0..] image_filenames) $ \(i,fname) -> do
     let scores = V.slice (i * category_num) category_num v
         j = V.maxIndex scores
