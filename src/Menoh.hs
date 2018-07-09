@@ -18,28 +18,19 @@
 -- = Basic usage
 --
 -- 1. Load computation graph from ONNX file using 'makeModelDataFromONNX'.
---
 -- 2. Specify input variable type/dimentions (in particular batch size) and
 --    which output variables you want to retrieve. These information is
 --    represented as 'VariableProfileTable'.
 --    Simple way to construct 'VariableProfileTable' is to use 'makeVariableProfileTable'.
---
 -- 3. Optimize 'ModelData' with respect to your 'VariableProfileTable' by using
 --    'optimizeModelData'.
---
 -- 4. Construct a 'Model' using 'makeModel' or 'makeModelWithConfig'.
 --    If you want to use custom buffers instead of internally allocated ones,
 --    You need to use more low level 'ModelBuilder'.
---
--- 5. Load input data. This can be done conveniently using 'writeBufferFromVector'
---    or 'writeBufferFromStorableVector'. There are also more low-level API such as
---    'unsafeGetBuffer' and 'withBuffer'.
---
+-- 5. Load input data. This can be done conveniently using 'writeBuffer'.
+--    There are also more low-level API such as 'unsafeGetBuffer' and 'withBuffer'.
 -- 6. Run inference using 'run'.
---
--- 7. Retrieve the result data. This can be done conveniently using 'readBufferToVector'
---    or 'readBufferToStorableVector'.
---
+-- 7. Retrieve the result data. This can be done conveniently using 'readBuffer'.
 --
 -- = Note on thread safety
 --
@@ -80,8 +71,15 @@ module Menoh
   , run
   , getDType
   , getDims
+  -- ** Accessors for buffers
+  , ToBuffer (..)
+  , FromBuffer (..)
+  , writeBuffer
+  , readBuffer
+  -- ** Low-level accessors for buffers
   , unsafeGetBuffer
   , withBuffer
+  -- ** Deprecated accessors for buffers
   , writeBufferFromVector
   , writeBufferFromStorableVector
   , readBufferToVector
@@ -125,9 +123,11 @@ import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BL
 import Data.Proxy
 import Data.Typeable
+import qualified Data.Vector as V
+import qualified Data.Vector.Generic as VG
 import qualified Data.Vector.Storable as VS
 import qualified Data.Vector.Storable.Mutable as VSM
-import qualified Data.Vector.Generic as VG
+import qualified Data.Vector.Unboxed as VU
 import Data.IntMap (IntMap)
 import qualified Data.IntMap as IntMap
 import Data.Version
@@ -463,6 +463,9 @@ getDims (Model m) name = liftIO $ runInBoundThread' $ do
       runMenoh $ Base.menoh_model_get_variable_dims_at m' name' (fromIntegral i) ret
       fromIntegral <$> peek ret
 
+-- ------------------------------------------------------------------------
+-- Accessing buffers
+
 -- | Get a buffer handle attached to target variable.
 --
 -- Users can get a buffer handle attached to target variable.
@@ -495,6 +498,76 @@ withBuffer (Model m) name f =
       peek ret
     f p
 
+-- | Type that can be written to menoh's buffer.
+class ToBuffer a where
+  -- Basic method for implementing @ToBuffer@ class.
+  -- Normal user should use 'writeBuffer' instead.
+  basicWriteToBuffer :: DType -> Dims -> Ptr () -> a -> IO ()
+
+-- | Type that can be read from menoh's buffer.
+class FromBuffer a where
+  -- Basic method for implementing @FromBuffer@ class.
+  -- Normal user should use 'readBuffer' instead.
+  basicReadFromBuffer :: DType -> Dims -> Ptr () -> IO a
+
+-- | Read values from the given model's buffer
+readBuffer :: (FromBuffer a, MonadIO m) => Model -> String -> m a
+readBuffer model name = liftIO $ withBuffer model name $ \p -> do
+  dtype <- getDType model name
+  dims <- getDims model name
+  basicReadFromBuffer dtype dims p
+
+-- | Write values to the given model's buffer
+writeBuffer :: (ToBuffer a, MonadIO m) => Model -> String -> a -> m ()
+writeBuffer model name a = liftIO $ withBuffer model name $ \p -> do
+  dtype <- getDType model name
+  dims <- getDims model name
+  basicWriteToBuffer dtype dims p a
+
+-- | Default implementation of 'basicWriteToBuffer' for 'VG.Vector' class.
+basicWriteVectorToBuffer :: forall v a. (VG.Vector v a, HasDType a) => DType -> Dims -> Ptr () -> (v a) -> IO ()
+basicWriteVectorToBuffer dtype dims p vec = do
+  let n = product dims
+      p' = castPtr p
+  checkDTypeAndSize "Menoh.basicWriteVectorToBuffer" (dtype, n) (dtypeOf (Proxy :: Proxy a), VG.length vec)
+  forM_ [0..n-1] $ \i -> do
+    pokeElemOff p' i (vec VG.! i)
+
+-- | Default implementation of 'basicReadToBuffer' for 'VG.Vector' class.
+basicReadVectorFromBuffer :: forall v a. (VG.Vector v a, HasDType a) => DType -> Dims -> Ptr () -> IO (v a)
+basicReadVectorFromBuffer dtype dims p = do
+  checkDType "Menoh.basicReadVectorFromBuffer" dtype (dtypeOf (Proxy :: Proxy a))
+  let n = product dims
+      p' = castPtr p
+  VG.generateM n $ peekElemOff p'
+
+instance HasDType a => ToBuffer (V.Vector a) where
+  basicWriteToBuffer = basicWriteVectorToBuffer
+
+instance HasDType a => FromBuffer (V.Vector a) where
+  basicReadFromBuffer = basicReadVectorFromBuffer
+
+instance (VU.Unbox a, HasDType a) => ToBuffer (VU.Vector a) where
+  basicWriteToBuffer = basicWriteVectorToBuffer
+
+instance (VU.Unbox a, HasDType a) => FromBuffer (VU.Vector a) where
+  basicReadFromBuffer = basicReadVectorFromBuffer
+
+instance HasDType a => ToBuffer (VS.Vector a) where
+  basicWriteToBuffer dtype dims p vec = do
+    let n = product dims
+    checkDTypeAndSize "Menoh.writeBufferFromStorableVector" (dtype, n) (dtypeOf (Proxy :: Proxy a), VG.length vec)
+    VS.unsafeWith vec $ \src -> do
+      copyArray (castPtr p) src n
+
+instance HasDType a => FromBuffer (VS.Vector a) where
+  basicReadFromBuffer dtype dims p = do
+    checkDType "Menoh.readBufferToStorableVector" dtype (dtypeOf (Proxy :: Proxy a))
+    let n = product dims
+    vec <- VSM.new n
+    VSM.unsafeWith vec $ \dst -> copyArray dst (castPtr p) n
+    VS.unsafeFreeze vec
+
 checkDType :: String -> DType -> DType -> IO ()
 checkDType name dtype1 dtype2
   | dtype1 /= dtype2 = throwIO $ ErrorInvalidDType $ name ++ ": dtype mismatch"
@@ -506,45 +579,33 @@ checkDTypeAndSize name (dtype1,n1) (dtype2,n2)
   | n1 /= n2         = throwIO $ ErrorDimensionMismatch $ name ++ ": dimension mismatch"
   | otherwise        = return ()
 
+{-# DEPRECATED writeBufferFromVector, writeBufferFromStorableVector "Use ToBuffer class and writeBuffer instead" #-}
+
 -- | Copy whole elements of 'VG.Vector' into a model's buffer
 writeBufferFromVector :: forall v a m. (VG.Vector v a, HasDType a, MonadIO m) => Model -> String -> v a -> m ()
 writeBufferFromVector model name vec = liftIO $ withBuffer model name $ \p -> do
   dtype <- getDType model name
   dims <- getDims model name
-  let n = product dims
-  checkDTypeAndSize "Menoh.writeBufferFromVector" (dtype, n) (dtypeOf (Proxy :: Proxy a), VG.length vec)
-  forM_ [0..n-1] $ \i -> do
-    pokeElemOff p i (vec VG.! i)
+  basicWriteVectorToBuffer dtype dims p vec
 
 -- | Copy whole elements of @'VS.Vector' a@ into a model's buffer
 writeBufferFromStorableVector :: forall a m. (HasDType a, MonadIO m) => Model -> String -> VS.Vector a -> m ()
-writeBufferFromStorableVector model name vec = liftIO $ withBuffer model name $ \p -> do
-  dtype <- getDType model name
-  dims <- getDims model name
-  let n = product dims
-  checkDTypeAndSize "Menoh.writeBufferFromStorableVector" (dtype, n) (dtypeOf (Proxy :: Proxy a), VG.length vec)
-  VS.unsafeWith vec $ \src -> do
-    copyArray p src n
+writeBufferFromStorableVector = writeBuffer
+
+{-# DEPRECATED readBufferToVector, readBufferToStorableVector "Use FromBuffer class and readBuffer instead" #-}
 
 -- | Read whole elements of 'Array' and return as a 'VG.Vector'.
 readBufferToVector :: forall v a m. (VG.Vector v a, HasDType a, MonadIO m) => Model -> String -> m (v a)
 readBufferToVector model name = liftIO $ withBuffer model name $ \p -> do
   dtype <- getDType model name
   dims <- getDims model name
-  checkDType "Menoh.readBufferToVector" dtype (dtypeOf (Proxy :: Proxy a))
-  let n = product dims
-  VG.generateM n $ peekElemOff p
+  basicReadVectorFromBuffer dtype dims p
 
--- | Read whole eleemnts of 'Array' and return as a @'VS.Vector' 'Float'@.
+-- | Read whole eleemnts of 'Array' and return as a 'VS.Vector'.
 readBufferToStorableVector :: forall a m. (HasDType a, MonadIO m) => Model -> String -> m (VS.Vector a)
-readBufferToStorableVector model name = liftIO $ withBuffer model name $ \p -> do
-  dtype <- getDType model name
-  dims <- getDims model name
-  checkDType "Menoh.readBufferToStorableVector" dtype (dtypeOf (Proxy :: Proxy a))
-  let n = product dims
-  vec <- VSM.new n
-  VSM.unsafeWith vec $ \dst -> copyArray dst p n
-  VS.unsafeFreeze vec
+readBufferToStorableVector = readBuffer
+
+-- ------------------------------------------------------------------------
 
 -- | Convenient methods for constructing  a 'Model'.
 makeModel
