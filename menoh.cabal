@@ -44,7 +44,7 @@ library
     , transformers >=0.3 && <0.6
     , vector >=0.10 && <0.13
   pkgconfig-depends:
-      menoh >=1.0.0
+      menoh >=1.0.0 && <2.0.0
   default-language: Haskell2010
 
 executable vgg16_example
