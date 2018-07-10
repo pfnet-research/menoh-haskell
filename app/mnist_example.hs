@@ -45,7 +45,7 @@ main = do
       input_dims  = [batch_size, channel_num, height, width]
       output_dims = [batch_size, category_num]
 
-  images <- liftM VS.concat $ forM image_filenames $ \fname -> do
+  images <- forM image_filenames $ \fname -> do
     ret <- Picture.readImage $ input_dir </> fname
     case ret of
       Left e -> error e
@@ -75,10 +75,9 @@ main = do
   run model
 
   -- Get output
-  (v :: V.Vector Float) <- readBuffer model mnist_out_name
-  forM_ (zip [0..] image_filenames) $ \(i,fname) -> do
-    let scores = V.slice (i * category_num) category_num v
-        j = V.maxIndex scores
+  (vs :: [V.Vector Float]) <- readBuffer model mnist_out_name
+  forM_ (zip vs image_filenames) $ \(scores,fname) -> do
+    let j = V.maxIndex scores
         s = scores V.! j
     printf "%s = %d : %f\n" fname j s
 
