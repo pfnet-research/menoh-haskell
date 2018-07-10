@@ -19,9 +19,8 @@
 --
 -- 1. Load computation graph from ONNX file using 'makeModelDataFromONNX'.
 -- 2. Specify input variable type/dimentions (in particular batch size) and
---    which output variables you want to retrieve. These information is
---    represented as 'VariableProfileTable'.
---    Simple way to construct 'VariableProfileTable' is to use 'makeVariableProfileTable'.
+--    which output variables you want to retrieve. This can be done by
+--    constructing 'VariableProfileTable' using 'makeVariableProfileTable'.
 -- 3. Optimize 'ModelData' with respect to your 'VariableProfileTable' by using
 --    'optimizeModelData'.
 -- 4. Construct a 'Model' using 'makeModel' or 'makeModelWithConfig'.
@@ -48,7 +47,8 @@
 --
 -- * In /non-threaded RTS/, this module /does not/ use 'runInBoundThread' and
 --   is therefore unsafe to use from multiple haskell threads. Using non-threaded
---   RTS is allowed for the sake of (e.g. running in GHCi) despite its its unsafety.
+--   RTS is allowed for the sake of convenience (e.g. running in GHCi) despite
+--   its unsafety.
 --
 -----------------------------------------------------------------------------
 module Menoh
@@ -63,6 +63,12 @@ module Menoh
   , ModelData (..)
   , makeModelDataFromONNX
   , optimizeModelData
+
+  -- * VariableProfileTable
+  , VariableProfileTable (..)
+  , makeVariableProfileTable
+  , vptGetDType
+  , vptGetDims
 
   -- * Model type
   , Model (..)
@@ -90,11 +96,6 @@ module Menoh
   , bindingVersion
 
   -- * Low-level API
-  -- ** VariableProfileTable
-  , VariableProfileTable (..)
-  , makeVariableProfileTable
-  , vptGetDType
-  , vptGetDims
 
   -- ** Builder for 'VariableProfileTable'
   , VariableProfileTableBuilder (..)
