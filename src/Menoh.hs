@@ -526,7 +526,7 @@ writeBuffer model name a = liftIO $ withBuffer model name $ \p -> do
   basicWriteToBuffer dtype dims p a
 
 -- | Default implementation of 'basicWriteToBuffer' for 'VG.Vector' class.
-basicWriteVectorToBuffer :: forall v a. (VG.Vector v a, HasDType a) => DType -> Dims -> Ptr () -> (v a) -> IO ()
+basicWriteVectorToBuffer :: forall v a. (VG.Vector v a, HasDType a) => DType -> Dims -> Ptr () -> v a -> IO ()
 basicWriteVectorToBuffer dtype dims p vec = do
   let n = product dims
       p' = castPtr p
