@@ -1,5 +1,20 @@
 {-# OPTIONS_GHC -Wall #-}
 {-# LANGUAGE ForeignFunctionInterface #-}
+-----------------------------------------------------------------------------
+-- |
+-- Module      :  Menoh.Base
+-- Copyright   :  Copyright (c) 2018 Preferred Networks, Inc.
+-- License     :  MIT (see the file LICENSE)
+--
+-- Maintainer  :  Masahiro Sakai <sakai@preferred.jp>
+-- Stability   :  experimental
+-- Portability :  non-portable
+--
+-- FFI imports of Menoh library.
+--
+-- See https://pfnet-research.github.io/menoh/ for details of those API.
+--
+-----------------------------------------------------------------------------
 module Menoh.Base where
 
 import Data.Int
