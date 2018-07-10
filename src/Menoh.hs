@@ -503,66 +503,66 @@ withBuffer (Model m) name f =
 class ToBuffer a where
   -- Basic method for implementing @ToBuffer@ class.
   -- Normal user should use 'writeBuffer' instead.
-  basicWriteToBuffer :: DType -> Dims -> Ptr () -> a -> IO ()
+  basicWriteBuffer :: DType -> Dims -> Ptr () -> a -> IO ()
 
 -- | Type that can be read from menoh's buffer.
 class FromBuffer a where
   -- Basic method for implementing @FromBuffer@ class.
   -- Normal user should use 'readBuffer' instead.
-  basicReadFromBuffer :: DType -> Dims -> Ptr () -> IO a
+  basicReadBuffer :: DType -> Dims -> Ptr () -> IO a
 
 -- | Read values from the given model's buffer
 readBuffer :: (FromBuffer a, MonadIO m) => Model -> String -> m a
 readBuffer model name = liftIO $ withBuffer model name $ \p -> do
   dtype <- getDType model name
   dims <- getDims model name
-  basicReadFromBuffer dtype dims p
+  basicReadBuffer dtype dims p
 
 -- | Write values to the given model's buffer
 writeBuffer :: (ToBuffer a, MonadIO m) => Model -> String -> a -> m ()
 writeBuffer model name a = liftIO $ withBuffer model name $ \p -> do
   dtype <- getDType model name
   dims <- getDims model name
-  basicWriteToBuffer dtype dims p a
+  basicWriteBuffer dtype dims p a
 
--- | Default implementation of 'basicWriteToBuffer' for 'VG.Vector' class.
-basicWriteVectorToBuffer :: forall v a. (VG.Vector v a, HasDType a) => DType -> Dims -> Ptr () -> v a -> IO ()
-basicWriteVectorToBuffer dtype dims p vec = do
+-- | Default implementation of 'basicWriteBuffer' for 'VG.Vector' class.
+basicWriteBufferVector :: forall v a. (VG.Vector v a, HasDType a) => DType -> Dims -> Ptr () -> v a -> IO ()
+basicWriteBufferVector dtype dims p vec = do
   let n = product dims
       p' = castPtr p
-  checkDTypeAndSize "Menoh.basicWriteVectorToBuffer" (dtype, n) (dtypeOf (Proxy :: Proxy a), VG.length vec)
+  checkDTypeAndSize "Menoh.basicWriteBufferVector" (dtype, n) (dtypeOf (Proxy :: Proxy a), VG.length vec)
   forM_ [0..n-1] $ \i -> do
     pokeElemOff p' i (vec VG.! i)
 
 -- | Default implementation of 'basicReadToBuffer' for 'VG.Vector' class.
-basicReadVectorFromBuffer :: forall v a. (VG.Vector v a, HasDType a) => DType -> Dims -> Ptr () -> IO (v a)
-basicReadVectorFromBuffer dtype dims p = do
-  checkDType "Menoh.basicReadVectorFromBuffer" dtype (dtypeOf (Proxy :: Proxy a))
+basicReadBufferVector :: forall v a. (VG.Vector v a, HasDType a) => DType -> Dims -> Ptr () -> IO (v a)
+basicReadBufferVector dtype dims p = do
+  checkDType "Menoh.basicReadBufferVector" dtype (dtypeOf (Proxy :: Proxy a))
   let n = product dims
       p' = castPtr p
   VG.generateM n $ peekElemOff p'
 
 instance HasDType a => ToBuffer (V.Vector a) where
-  basicWriteToBuffer = basicWriteVectorToBuffer
+  basicWriteBuffer = basicWriteBufferVector
 
 instance HasDType a => FromBuffer (V.Vector a) where
-  basicReadFromBuffer = basicReadVectorFromBuffer
+  basicReadBuffer = basicReadBufferVector
 
 instance (VU.Unbox a, HasDType a) => ToBuffer (VU.Vector a) where
-  basicWriteToBuffer = basicWriteVectorToBuffer
+  basicWriteBuffer = basicWriteBufferVector
 
 instance (VU.Unbox a, HasDType a) => FromBuffer (VU.Vector a) where
-  basicReadFromBuffer = basicReadVectorFromBuffer
+  basicReadBuffer = basicReadBufferVector
 
 instance HasDType a => ToBuffer (VS.Vector a) where
-  basicWriteToBuffer dtype dims p vec = do
+  basicWriteBuffer dtype dims p vec = do
     let n = product dims
     checkDTypeAndSize "Menoh.writeBufferFromStorableVector" (dtype, n) (dtypeOf (Proxy :: Proxy a), VG.length vec)
     VS.unsafeWith vec $ \src -> do
       copyArray (castPtr p) src n
 
 instance HasDType a => FromBuffer (VS.Vector a) where
-  basicReadFromBuffer dtype dims p = do
+  basicReadBuffer dtype dims p = do
     checkDType "Menoh.readBufferToStorableVector" dtype (dtypeOf (Proxy :: Proxy a))
     let n = product dims
     vec <- VSM.new n
@@ -587,7 +587,7 @@ writeBufferFromVector :: forall v a m. (VG.Vector v a, HasDType a, MonadIO m) =>
 writeBufferFromVector model name vec = liftIO $ withBuffer model name $ \p -> do
   dtype <- getDType model name
   dims <- getDims model name
-  basicWriteVectorToBuffer dtype dims p vec
+  basicWriteBufferVector dtype dims p vec
 
 -- | Copy whole elements of @'VS.Vector' a@ into a model's buffer
 writeBufferFromStorableVector :: forall a m. (HasDType a, MonadIO m) => Model -> String -> VS.Vector a -> m ()
@@ -600,7 +600,7 @@ readBufferToVector :: forall v a m. (VG.Vector v a, HasDType a, MonadIO m) => Mo
 readBufferToVector model name = liftIO $ withBuffer model name $ \p -> do
   dtype <- getDType model name
   dims <- getDims model name
-  basicReadVectorFromBuffer dtype dims p
+  basicReadBufferVector dtype dims p
 
 -- | Read whole eleemnts of 'Array' and return as a 'VS.Vector'.
 readBufferToStorableVector :: forall a m. (HasDType a, MonadIO m) => Model -> String -> m (VS.Vector a)
