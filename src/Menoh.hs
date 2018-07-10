@@ -216,6 +216,10 @@ instance Enum DType where
   fromEnum DTypeFloat = fromIntegral Base.menohDtypeFloat
   fromEnum (DTypeUnknown i) = fromIntegral i
 
+dtypeSize :: DType -> Int
+dtypeSize DTypeFloat = sizeOf (undefined :: CFloat)
+dtypeSize (DTypeUnknown _) = error "Menoh.dtypeSize: unknown DType"
+
 -- | Haskell types that have associated 'DType' type code.
 class Storable a => HasDType a where
   dtypeOf :: Proxy a -> DType
@@ -568,6 +572,24 @@ instance HasDType a => FromBuffer (VS.Vector a) where
     vec <- VSM.new n
     VSM.unsafeWith vec $ \dst -> copyArray dst (castPtr p) n
     VS.unsafeFreeze vec
+
+instance ToBuffer a => ToBuffer [a] where
+  basicWriteBuffer _dtype [] _p _xs =
+    throwIO $ ErrorDimensionMismatch $ "ToBuffer{[a]}.basicWriteBuffer: empty dims"
+  basicWriteBuffer dtype (dim : dims) p xs = do
+    unless (dim == length xs) $ do
+      throwIO $ ErrorDimensionMismatch $ "ToBuffer{[a]}.basicWriteBuffer: dimension mismatch"
+    let s = product dims * dtypeSize dtype
+    forM_ (zip [0,s..] xs) $ \(offset,x) -> do
+      basicWriteBuffer dtype dims (p `plusPtr` offset) x
+
+instance FromBuffer a => FromBuffer [a] where
+  basicReadBuffer _dtype [] _p =
+    throwIO $ ErrorDimensionMismatch $ "FromBuffer{[a]}.basicReadBuffer: empty dims"
+  basicReadBuffer dtype (dim : dims) p = do
+    let s = product dims * dtypeSize dtype
+    forM [0..dim-1] $ \i -> do
+      basicReadBuffer dtype dims (p `plusPtr` (i*s))
 
 checkDType :: String -> DType -> DType -> IO ()
 checkDType name dtype1 dtype2

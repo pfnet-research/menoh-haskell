@@ -55,20 +55,20 @@ main = do
   model <- makeModel vpt model_data "mkldnn"
 
   -- Copy input image data to model's input array
-  writeBuffer model conv1_1_in_name image_data
+  writeBuffer model conv1_1_in_name [image_data]
 
   -- Run inference
   run model
 
   -- Get output
-  (fc6_out :: V.Vector Float) <- readBuffer model fc6_out_name
+  ([fc6_out] :: [V.Vector Float]) <- readBuffer model fc6_out_name
   putStr "fc6_out: "
   forM_ [0..4] $ \i -> do
     putStr $ show $ fc6_out V.! i
     putStr " "
   putStrLn "..."
 
-  (softmax_out :: V.Vector Float) <- readBuffer model softmax_out_name
+  ([softmax_out] :: [V.Vector Float]) <- readBuffer model softmax_out_name
 
   categories <- liftM lines $ readFile (optSynsetWordsPath opt)
   let k = 5
