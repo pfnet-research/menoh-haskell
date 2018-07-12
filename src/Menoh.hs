@@ -2,6 +2,7 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 -----------------------------------------------------------------------------
 -- |
@@ -221,7 +222,7 @@ dtypeSize DTypeFloat = sizeOf (undefined :: CFloat)
 dtypeSize (DTypeUnknown _) = error "Menoh.dtypeSize: unknown DType"
 
 -- | Haskell types that have associated 'DType' type code.
-class Storable a => HasDType a where
+class HasDType a where
   dtypeOf :: Proxy a -> DType
 
 instance HasDType CFloat where
@@ -529,49 +530,72 @@ writeBuffer model name a = liftIO $ withBuffer model name $ \p -> do
   dims <- getDims model name
   basicWriteBuffer dtype dims p a
 
--- | Default implementation of 'basicWriteBuffer' for 'VG.Vector' class.
-basicWriteBufferVector :: forall v a. (VG.Vector v a, HasDType a) => DType -> Dims -> Ptr () -> v a -> IO ()
-basicWriteBufferVector dtype dims p vec = do
+
+-- | Default implementation of 'basicWriteBuffer' for 'VG.Vector' class
+-- for the cases whete the 'Storable' is compatible for representation in buffers.
+basicWriteBufferGenericVectorStorable
+  :: forall v a. (VG.Vector v a, Storable a, HasDType a)
+  => DType -> Dims -> Ptr () -> v a -> IO ()
+basicWriteBufferGenericVectorStorable dtype dims p vec = do
   let n = product dims
       p' = castPtr p
-  checkDTypeAndSize "Menoh.basicWriteBufferVector" (dtype, n) (dtypeOf (Proxy :: Proxy a), VG.length vec)
+  checkDTypeAndSize "Menoh.basicWriteBufferGenericVectorStorable" (dtype, n) (dtypeOf (Proxy :: Proxy a), VG.length vec)
   forM_ [0..n-1] $ \i -> do
     pokeElemOff p' i (vec VG.! i)
 
--- | Default implementation of 'basicReadToBuffer' for 'VG.Vector' class.
-basicReadBufferVector :: forall v a. (VG.Vector v a, HasDType a) => DType -> Dims -> Ptr () -> IO (v a)
-basicReadBufferVector dtype dims p = do
-  checkDType "Menoh.basicReadBufferVector" dtype (dtypeOf (Proxy :: Proxy a))
+-- | Default implementation of 'basicReadToBuffer' for 'VG.Vector' class
+-- for the cases whete the 'Storable' is compatible for representation in buffers.
+basicReadBufferGenericVectorStorable
+  :: forall v a. (VG.Vector v a, Storable a, HasDType a)
+  => DType -> Dims -> Ptr () -> IO (v a)
+basicReadBufferGenericVectorStorable dtype dims p = do
+  checkDType "Menoh.basicReadBufferGenericVectorStorable" dtype (dtypeOf (Proxy :: Proxy a))
   let n = product dims
       p' = castPtr p
   VG.generateM n $ peekElemOff p'
 
-instance HasDType a => ToBuffer (V.Vector a) where
-  basicWriteBuffer = basicWriteBufferVector
 
-instance HasDType a => FromBuffer (V.Vector a) where
-  basicReadBuffer = basicReadBufferVector
+-- | Default implementation of 'basicWriteBuffer' for 'VS.Vector' class
+-- for the cases whete the 'Storable' is compatible for representation in buffers.
+basicWriteBufferStorableVector
+  :: forall a. (Storable a, HasDType a)
+  => DType -> Dims -> Ptr () -> VS.Vector a -> IO ()
+basicWriteBufferStorableVector dtype dims p vec = do
+  let n = product dims
+  checkDTypeAndSize "Menoh.basicWriteBufferStorableVector" (dtype, n) (dtypeOf (Proxy :: Proxy a), VG.length vec)
+  VS.unsafeWith vec $ \src -> do
+    copyArray (castPtr p) src n
 
-instance (VU.Unbox a, HasDType a) => ToBuffer (VU.Vector a) where
-  basicWriteBuffer = basicWriteBufferVector
+-- | Default implementation of 'basicReadToBuffer' for 'VS.Vector' class
+-- for the cases whete the 'Storable' is compatible for representation in buffers.
+basicReadBufferStorableVector
+  :: forall a. (Storable a, HasDType a)
+  => DType -> Dims -> Ptr () -> IO (VS.Vector a)
+basicReadBufferStorableVector dtype dims p = do
+  checkDType "Menoh.basicReadBufferStorableVector" dtype (dtypeOf (Proxy :: Proxy a))
+  let n = product dims
+  vec <- VSM.new n
+  VSM.unsafeWith vec $ \dst -> copyArray dst (castPtr p) n
+  VS.unsafeFreeze vec
 
-instance (VU.Unbox a, HasDType a) => FromBuffer (VU.Vector a) where
-  basicReadBuffer = basicReadBufferVector
 
-instance HasDType a => ToBuffer (VS.Vector a) where
-  basicWriteBuffer dtype dims p vec = do
-    let n = product dims
-    checkDTypeAndSize "Menoh.writeBufferFromStorableVector" (dtype, n) (dtypeOf (Proxy :: Proxy a), VG.length vec)
-    VS.unsafeWith vec $ \src -> do
-      copyArray (castPtr p) src n
+instance ToBuffer (V.Vector Float) where
+  basicWriteBuffer = basicWriteBufferGenericVectorStorable
+instance FromBuffer (V.Vector Float) where
+  basicReadBuffer = basicReadBufferGenericVectorStorable
 
-instance HasDType a => FromBuffer (VS.Vector a) where
-  basicReadBuffer dtype dims p = do
-    checkDType "Menoh.readBufferToStorableVector" dtype (dtypeOf (Proxy :: Proxy a))
-    let n = product dims
-    vec <- VSM.new n
-    VSM.unsafeWith vec $ \dst -> copyArray dst (castPtr p) n
-    VS.unsafeFreeze vec
+
+instance ToBuffer (VU.Vector Float) where
+  basicWriteBuffer = basicWriteBufferGenericVectorStorable
+instance FromBuffer (VU.Vector Float) where
+  basicReadBuffer = basicReadBufferGenericVectorStorable
+
+
+instance ToBuffer (VS.Vector Float) where
+  basicWriteBuffer = basicWriteBufferStorableVector
+instance FromBuffer (VS.Vector Float) where
+  basicReadBuffer = basicReadBufferStorableVector
+
 
 instance ToBuffer a => ToBuffer [a] where
   basicWriteBuffer _dtype [] _p _xs =
@@ -591,6 +615,7 @@ instance FromBuffer a => FromBuffer [a] where
     forM [0..dim-1] $ \i -> do
       basicReadBuffer dtype dims (p `plusPtr` (i*s))
 
+
 checkDType :: String -> DType -> DType -> IO ()
 checkDType name dtype1 dtype2
   | dtype1 /= dtype2 = throwIO $ ErrorInvalidDType $ name ++ ": dtype mismatch"
@@ -602,31 +627,38 @@ checkDTypeAndSize name (dtype1,n1) (dtype2,n2)
   | n1 /= n2         = throwIO $ ErrorDimensionMismatch $ name ++ ": dimension mismatch"
   | otherwise        = return ()
 
+
 {-# DEPRECATED writeBufferFromVector, writeBufferFromStorableVector "Use ToBuffer class and writeBuffer instead" #-}
 
 -- | Copy whole elements of 'VG.Vector' into a model's buffer
-writeBufferFromVector :: forall v a m. (VG.Vector v a, HasDType a, MonadIO m) => Model -> String -> v a -> m ()
+writeBufferFromVector :: forall v a m. (VG.Vector v a, Storable a, HasDType a, MonadIO m) => Model -> String -> v a -> m ()
 writeBufferFromVector model name vec = liftIO $ withBuffer model name $ \p -> do
   dtype <- getDType model name
   dims <- getDims model name
-  basicWriteBufferVector dtype dims p vec
+  basicWriteBufferGenericVectorStorable dtype dims p vec
 
 -- | Copy whole elements of @'VS.Vector' a@ into a model's buffer
-writeBufferFromStorableVector :: forall a m. (HasDType a, MonadIO m) => Model -> String -> VS.Vector a -> m ()
-writeBufferFromStorableVector = writeBuffer
+writeBufferFromStorableVector :: forall a m. (Storable a, HasDType a, MonadIO m) => Model -> String -> VS.Vector a -> m ()
+writeBufferFromStorableVector model name vec = liftIO $ withBuffer model name $ \p -> do
+  dtype <- getDType model name
+  dims <- getDims model name
+  basicWriteBufferStorableVector dtype dims p vec
 
 {-# DEPRECATED readBufferToVector, readBufferToStorableVector "Use FromBuffer class and readBuffer instead" #-}
 
 -- | Read whole elements of 'Array' and return as a 'VG.Vector'.
-readBufferToVector :: forall v a m. (VG.Vector v a, HasDType a, MonadIO m) => Model -> String -> m (v a)
+readBufferToVector :: forall v a m. (VG.Vector v a, Storable a, HasDType a, MonadIO m) => Model -> String -> m (v a)
 readBufferToVector model name = liftIO $ withBuffer model name $ \p -> do
   dtype <- getDType model name
   dims <- getDims model name
-  basicReadBufferVector dtype dims p
+  basicReadBufferGenericVectorStorable dtype dims p
 
 -- | Read whole eleemnts of 'Array' and return as a 'VS.Vector'.
-readBufferToStorableVector :: forall a m. (HasDType a, MonadIO m) => Model -> String -> m (VS.Vector a)
-readBufferToStorableVector = readBuffer
+readBufferToStorableVector :: forall a m. (Storable a, HasDType a, MonadIO m) => Model -> String -> m (VS.Vector a)
+readBufferToStorableVector model name = liftIO $ withBuffer model name $ \p -> do
+  dtype <- getDType model name
+  dims <- getDims model name
+  basicReadBufferStorableVector dtype dims p
 
 -- ------------------------------------------------------------------------
 
