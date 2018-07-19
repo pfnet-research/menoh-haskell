@@ -57,7 +57,6 @@ module Menoh
   -- * Basic data types
     Dims
   , DType (..)
-  , HasDType (..)
   , Error (..)
 
   -- * ModelData type
@@ -87,6 +86,7 @@ module Menoh
   , unsafeGetBuffer
   , withBuffer
   -- ** Deprecated accessors for buffers
+  , HasDType (..)
   , writeBufferFromVector
   , writeBufferFromStorableVector
   , readBufferToVector
@@ -221,8 +221,9 @@ dtypeSize :: DType -> Int
 dtypeSize DTypeFloat = sizeOf (undefined :: CFloat)
 dtypeSize (DTypeUnknown _) = error "Menoh.dtypeSize: unknown DType"
 
+{-# DEPRECATED HasDType "use FromBuffer/ToBuffer instead" #-}
 -- | Haskell types that have associated 'DType' type code.
-class HasDType a where
+class Storable a => HasDType a where
   dtypeOf :: Proxy a -> DType
 
 instance HasDType CFloat where
@@ -631,14 +632,14 @@ checkDTypeAndSize name (dtype1,n1) (dtype2,n2)
 {-# DEPRECATED writeBufferFromVector, writeBufferFromStorableVector "Use ToBuffer class and writeBuffer instead" #-}
 
 -- | Copy whole elements of 'VG.Vector' into a model's buffer
-writeBufferFromVector :: forall v a m. (VG.Vector v a, Storable a, HasDType a, MonadIO m) => Model -> String -> v a -> m ()
+writeBufferFromVector :: forall v a m. (VG.Vector v a, HasDType a, MonadIO m) => Model -> String -> v a -> m ()
 writeBufferFromVector model name vec = liftIO $ withBuffer model name $ \p -> do
   dtype <- getDType model name
   dims <- getDims model name
   basicWriteBufferGenericVectorStorable (dtypeOf (Proxy :: Proxy a)) dtype dims p vec
 
 -- | Copy whole elements of @'VS.Vector' a@ into a model's buffer
-writeBufferFromStorableVector :: forall a m. (Storable a, HasDType a, MonadIO m) => Model -> String -> VS.Vector a -> m ()
+writeBufferFromStorableVector :: forall a m. (HasDType a, MonadIO m) => Model -> String -> VS.Vector a -> m ()
 writeBufferFromStorableVector model name vec = liftIO $ withBuffer model name $ \p -> do
   dtype <- getDType model name
   dims <- getDims model name
@@ -647,14 +648,14 @@ writeBufferFromStorableVector model name vec = liftIO $ withBuffer model name $ 
 {-# DEPRECATED readBufferToVector, readBufferToStorableVector "Use FromBuffer class and readBuffer instead" #-}
 
 -- | Read whole elements of 'Array' and return as a 'VG.Vector'.
-readBufferToVector :: forall v a m. (VG.Vector v a, Storable a, HasDType a, MonadIO m) => Model -> String -> m (v a)
+readBufferToVector :: forall v a m. (VG.Vector v a, HasDType a, MonadIO m) => Model -> String -> m (v a)
 readBufferToVector model name = liftIO $ withBuffer model name $ \p -> do
   dtype <- getDType model name
   dims <- getDims model name
   basicReadBufferGenericVectorStorable (dtypeOf (Proxy :: Proxy a)) dtype dims p
 
 -- | Read whole eleemnts of 'Array' and return as a 'VS.Vector'.
-readBufferToStorableVector :: forall a m. (Storable a, HasDType a, MonadIO m) => Model -> String -> m (VS.Vector a)
+readBufferToStorableVector :: forall a m. (HasDType a, MonadIO m) => Model -> String -> m (VS.Vector a)
 readBufferToStorableVector model name = liftIO $ withBuffer model name $ \p -> do
   dtype <- getDType model name
   dims <- getDims model name
