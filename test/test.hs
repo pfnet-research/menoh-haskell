@@ -4,6 +4,7 @@
 
 import qualified Codec.Picture as Picture
 import Control.Concurrent.Async
+import Control.Exception
 import Control.Monad
 import qualified Data.Vector as V
 import qualified Data.Vector.Generic as VG
@@ -55,6 +56,90 @@ case_basicWriteBuffer_list = do
     ys @?= concat xss
   where
     xss = [[1,2,3], [4,5,6], [7,8,9]]
+
+------------------------------------------------------------------------
+
+case_loading_nonexistent_model_file :: Assertion
+case_loading_nonexistent_model_file = do
+  dataDir <- getDataDir
+  ret <- try $ makeModelDataFromONNX $ dataDir </> "data" </> "nonexistent_model.onnx"
+  case ret of
+    Left (ErrorInvalidFilename _msg) -> return ()
+    _ -> assertFailure "should throw ErrorInvalidFilename"
+
+
+case_empty_output :: Assertion
+case_empty_output = do
+  images <- loadMNISTImages
+  let batch_size = length images
+
+  dataDir <- getDataDir
+  model_data <- makeModelDataFromONNX $ dataDir </> "data" </> "mnist.onnx"
+  vpt <- makeVariableProfileTable
+           [(mnist_in_name, DTypeFloat, [batch_size, mnist_channel_num, mnist_height, mnist_width])]
+           []
+           model_data
+  optimizeModelData model_data vpt
+  model <- makeModel vpt model_data "mkldnn"
+
+  -- Run the model
+  writeBuffer model mnist_in_name images
+  run model
+
+  -- but we cannot retrieve results
+  return ()
+
+
+case_insufficient_input :: Assertion
+case_insufficient_input = do
+  dataDir <- getDataDir
+  model_data <- makeModelDataFromONNX $ dataDir </> "data" </> "mnist.onnx"
+  ret <- try $ makeVariableProfileTable
+    []
+    [(mnist_out_name, DTypeFloat)]
+    model_data
+  case ret of
+    Left (ErrorVariableNotFound _msg) -> return ()
+    _ -> assertFailure "should throw ErrorVariableNotFound"
+
+
+case_bad_input :: Assertion
+case_bad_input = do
+  images <- loadMNISTImages
+
+  dataDir <- getDataDir
+  model_data <- makeModelDataFromONNX $ dataDir </> "data" </> "mnist.onnx"
+  vpt <- makeVariableProfileTable
+           [ (mnist_in_name, DTypeFloat, [length images, mnist_channel_num, mnist_height, mnist_width])
+           , ("bad input name", DTypeFloat, [1,8])
+           ]
+           [(mnist_out_name, DTypeFloat)]
+           model_data
+  optimizeModelData model_data vpt
+  model <- makeModel vpt model_data "mkldnn"
+
+  -- Run the model
+  writeBuffer model mnist_in_name images
+  run model
+  (vs :: [V.Vector Float]) <- readBuffer model mnist_out_name
+  forM_ (zip [0..9] vs) $ \(i, scores) -> do
+    V.maxIndex scores @?= i
+
+
+case_bad_output :: Assertion
+case_bad_output = do
+  images <- loadMNISTImages
+
+  dataDir <- getDataDir
+  model_data <- makeModelDataFromONNX $ dataDir </> "data" </> "mnist.onnx"
+  ret <- try $ makeVariableProfileTable
+    [(mnist_in_name, DTypeFloat, [length images, mnist_channel_num, mnist_height, mnist_width])]
+    [(mnist_out_name, DTypeFloat), ("bad output name", DTypeFloat)]
+    model_data
+  case ret of
+    Left (ErrorVariableNotFound _msg) -> return ()
+    _ -> assertFailure "should throw ErrorVariableNotFound"
+
 
 ------------------------------------------------------------------------
 
