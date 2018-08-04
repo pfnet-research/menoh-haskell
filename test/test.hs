@@ -3,6 +3,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 
 import qualified Codec.Picture as Picture
+import qualified Codec.Picture.Types as Picture
 import Control.Concurrent.Async
 import Control.Exception
 import Control.Monad
@@ -160,7 +161,12 @@ loadMNISTImages = do
     ret <- Picture.readImage $ dataDir </> "data" </> (show i ++ ".png")
     case ret of
       Left e -> error e
-      Right img -> return $ convert mnist_width mnist_height img
+      Right img -> return
+        $ VG.map fromIntegral
+        $ Picture.imageData
+        $ Picture.extractLumaPlane
+        $ Picture.convertRGB8
+        $ img
 
 loadMNISTModel :: Int -> IO Model
 loadMNISTModel batch_size = do
@@ -214,35 +220,6 @@ case_MNIST_concurrently = do
       forM_ (zip [0..9] vs) $ \(i, scores) -> do
         V.maxIndex scores @?= i
   return ()
-
--- -------------------------------------------------------------------------
-
-convert :: Int -> Int -> Picture.DynamicImage -> VS.Vector Float
-convert w h = reorderToNCHW . resize (w,h) . crop . Picture.convertRGB8
-
-crop :: Picture.Pixel a => Picture.Image a -> Picture.Image a
-crop img = Picture.generateImage (\x y -> Picture.pixelAt img (base_x + x) (base_y + y)) shortEdge shortEdge
-  where
-    shortEdge = min (Picture.imageWidth img) (Picture.imageHeight img)
-    base_x = (Picture.imageWidth  img - shortEdge) `div` 2
-    base_y = (Picture.imageHeight img - shortEdge) `div` 2
-
--- TODO: Should we do some kind of interpolation?
-resize :: Picture.Pixel a => (Int,Int) -> Picture.Image a -> Picture.Image a
-resize (w,h) img = Picture.generateImage (\x y -> Picture.pixelAt img (x * orig_w `div` w) (y * orig_h `div` h)) w h
-  where
-    orig_w = Picture.imageWidth  img
-    orig_h = Picture.imageHeight img
-
-reorderToNCHW :: Picture.Image Picture.PixelRGB8 -> VS.Vector Float
-reorderToNCHW img = VS.generate (Picture.imageHeight img * Picture.imageWidth img) f
-  where
-    f i =
-      case Picture.pixelAt img x y of
-        Picture.PixelRGB8 r g b ->
-          (fromIntegral r + fromIntegral g + fromIntegral b) / 3
-      where
-        (y,x) = i `divMod` Picture.imageWidth img
 
 ------------------------------------------------------------------------
 -- Test harness
