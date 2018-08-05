@@ -4,10 +4,11 @@
 module Main (main) where
 
 import qualified Codec.Picture as Picture
+import qualified Codec.Picture.Types as Picture
 import Control.Applicative
 import Control.Monad
 import Data.Monoid
-import qualified Data.Vector as V
+import qualified Data.Vector.Generic as VG
 import qualified Data.Vector.Storable as VS
 import Data.Version
 import Options.Applicative
@@ -24,35 +25,27 @@ main = do
   opt <- execParser (parserInfo (dataDir </> "data"))
 
   let input_dir = optInputPath opt
-      image_filenames =
-        [ "0.png"
-        , "1.png"
-        , "2.png"
-        , "3.png"
-        , "4.png"
-        , "5.png"
-        , "6.png"
-        , "7.png"
-        , "8.png"
-        , "9.png"
-        ]
-      batch_size  = length image_filenames
+
+  images <- forM [(0::Int)..9] $ \i -> do
+    let fname :: String
+        fname = printf "%d.png" i
+    ret <- Picture.readImage $ input_dir </> fname
+    case ret of
+      Left e -> error e
+      Right img -> return (Picture.extractLumaPlane $ Picture.convertRGB8 img, i, fname)
+
+  let batch_size  = length images
       channel_num = 1
       height = 28
       width  = 28
       category_num = 10
+
       input_dims, output_dims :: Dims
       input_dims  = [batch_size, channel_num, height, width]
       output_dims = [batch_size, category_num]
 
-  images <- forM image_filenames $ \fname -> do
-    ret <- Picture.readImage $ input_dir </> fname
-    case ret of
-      Left e -> error e
-      Right img -> return $ convert width height img
-
-  -- Aliases to onnx's node input and output tensor name
-  let mnist_in_name  = "139900320569040"
+      -- Aliases to onnx's node input and output tensor name
+      mnist_in_name  = "139900320569040"
       mnist_out_name = "139898462888656"
 
   -- Load ONNX model data
@@ -69,17 +62,22 @@ main = do
   model <- makeModel vpt model_data "mkldnn"
 
   -- Copy input image data to model's input array
-  writeBuffer model mnist_in_name images
+  writeBuffer model mnist_in_name [VG.map fromIntegral (Picture.imageData img) :: VS.Vector Float | (img,_,_) <- images]
 
   -- Run inference
   run model
 
   -- Get output
-  (vs :: [V.Vector Float]) <- readBuffer model mnist_out_name
-  forM_ (zip vs image_filenames) $ \(scores,fname) -> do
-    let j = V.maxIndex scores
-        s = scores V.! j
-    printf "%s = %d : %f\n" fname j s
+  (vs :: [VS.Vector Float]) <- readBuffer model mnist_out_name
+
+  -- Examine the results
+  forM_ (zip images vs) $ \((_img,expected,fname), scores) -> do
+    let guessed = VG.maxIndex scores
+    putStrLn fname
+    printf "Expected: %d Guessed: %d\n" expected guessed
+    putStrLn $ "Scores: " ++ show (zip [(0::Int)..] (VG.toList scores))
+    putStrLn $ "Probabilities: " ++ show (zip [(0::Int)..] (VG.toList (softmax scores)))
+    putStrLn ""
 
 -- -------------------------------------------------------------------------
 
@@ -122,31 +120,12 @@ parserInfo dir = info (helper <*> versionOption <*> optionsParser dir)
 
 -- -------------------------------------------------------------------------
 
-convert :: Int -> Int -> Picture.DynamicImage -> VS.Vector Float
-convert w h = reorderToNCHW . resize (w,h) . crop . Picture.convertRGB8
-
-crop :: Picture.Pixel a => Picture.Image a -> Picture.Image a
-crop img = Picture.generateImage (\x y -> Picture.pixelAt img (base_x + x) (base_y + y)) shortEdge shortEdge
+softmax :: (Real a, Floating a, VG.Vector v a) => v a -> v a
+softmax v | VG.null v = VG.empty
+softmax v = VG.map (/ s) v'
   where
-    shortEdge = min (Picture.imageWidth img) (Picture.imageHeight img)
-    base_x = (Picture.imageWidth  img - shortEdge) `div` 2
-    base_y = (Picture.imageHeight img - shortEdge) `div` 2
-
--- TODO: Should we do some kind of interpolation?
-resize :: Picture.Pixel a => (Int,Int) -> Picture.Image a -> Picture.Image a
-resize (w,h) img = Picture.generateImage (\x y -> Picture.pixelAt img (x * orig_w `div` w) (y * orig_h `div` h)) w h
-  where
-    orig_w = Picture.imageWidth  img
-    orig_h = Picture.imageHeight img
-
-reorderToNCHW :: Picture.Image Picture.PixelRGB8 -> VS.Vector Float
-reorderToNCHW img = VS.generate (Picture.imageHeight img * Picture.imageWidth img) f
-  where
-    f i =
-      case Picture.pixelAt img x y of
-        Picture.PixelRGB8 r g b ->
-          (fromIntegral r + fromIntegral g + fromIntegral b) / 3
-      where
-        (y,x) = i `divMod` Picture.imageWidth img
+    m = VG.maximum v
+    v' = VG.map (\x -> exp (x - m)) v
+    s = VG.sum v'
 
 -- -------------------------------------------------------------------------
