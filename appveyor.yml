@@ -19,18 +19,18 @@ install:
 - if [%TARGET%]==[mingw] set PATH=C:\msys64\mingw64\bin;C:\msys64\usr\bin;%PATH%
 - if [%TARGET%]==[msvc] set PATH=C:\msys64\mingw64\bin;%PATH%
 - if [%TARGET%]==[mingw] (
-    curl -omingw-w64-x86_64-mkl-dnn-0.15-1-x86_64.pkg.tar.xz -L https://github.com/pfnet-research/menoh/releases/download/v1.0.3/mingw-w64-x86_64-mkl-dnn-0.15-1-x86_64.pkg.tar.xz &&
-    pacman -U --noconfirm mingw-w64-x86_64-mkl-dnn-0.15-1-x86_64.pkg.tar.xz &&
+    curl -omingw-w64-x86_64-mkl-dnn-0.16-1-x86_64.pkg.tar.xz -L https://github.com/msakai/mkl-dnn/releases/download/v0.16/mingw-w64-x86_64-mkl-dnn-0.16-1-x86_64.pkg.tar.xz &&
+    pacman -U --noconfirm mingw-w64-x86_64-mkl-dnn-0.16-1-x86_64.pkg.tar.xz &&
     curl -omingw-w64-x86_64-menoh-1.0.3-1-x86_64.pkg.tar.xz -L https://github.com/pfnet-research/menoh/releases/download/v1.0.3/mingw-w64-x86_64-menoh-1.0.3-1-x86_64.pkg.tar.xz &&
     pacman -U --noconfirm mingw-w64-x86_64-menoh-1.0.3-1-x86_64.pkg.tar.xz
   ) else (
-    curl -omkl-dnn-0.15-win64.7z -L --insecure https://github.com/pfnet-research/menoh/releases/download/v1.0.3/mkl-dnn-0.15-win64.zip &&
-    7z x mkl-dnn-0.15-win64.7z &&
+    curl -omkl-dnn-0.16-win64.7z -L --insecure https://github.com/msakai/mkl-dnn/releases/download/v0.16/mkl-dnn-0.16-win64.7z &&
+    7z x mkl-dnn-0.16-win64.7z &&
     curl -omenoh_prebuild_win_v1.0.3.zip -L --insecure https://github.com/pfnet-research/menoh/releases/download/v1.0.3/menoh_prebuild_win_v1.0.3.zip &&
     7z x menoh_prebuild_win_v1.0.3.zip
   )
 - if [%TARGET%]==[msvc] set PKG_CONFIG_PATH=c:\projects\menoh-haskell\menoh_prebuild_win_v1.0.3\share\pkgconfig;%PKG_CONFIG_PATH%
-- if [%TARGET%]==[msvc] set PATH=c:\projects\menoh-haskell\menoh_prebuild_win_v1.0.3\bin;c:\projects\menoh-haskell\mkl-dnn-0.15-win64\bin;c:\projects\menoh-haskell\mkl-dnn-0.15-win64\lib;%PATH%
+- if [%TARGET%]==[msvc] set PATH=c:\projects\menoh-haskell\menoh_prebuild_win_v1.0.3\bin;c:\projects\menoh-haskell\mkl-dnn-0.16-win64\bin;c:\projects\menoh-haskell\mkl-dnn-0.16-win64\lib;%PATH%
 
 - curl -ostack.zip -L --insecure http://www.stackage.org/stack/windows-x86_64
 - 7z x stack.zip stack.exe
