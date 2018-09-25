@@ -62,6 +62,9 @@ module Menoh
   -- * ModelData type
   , ModelData (..)
   , makeModelDataFromONNX
+#ifdef HAVE_MENOH_MAKE_MODEL_DATA_FROM_ONNX_DATA_ON_MEMORY
+  , makeModelDataFromByteString
+#endif
   , optimizeModelData
 
   -- * VariableProfileTable
@@ -251,6 +254,14 @@ makeModelDataFromONNX :: MonadIO m => FilePath -> m ModelData
 makeModelDataFromONNX fpath = liftIO $ withCString fpath $ \fpath' -> alloca $ \ret -> do
   runMenoh $ Base.menoh_make_model_data_from_onnx fpath' ret
   liftM ModelData $ newForeignPtr Base.menoh_delete_model_data_funptr =<< peek ret
+
+#ifdef HAVE_MENOH_MAKE_MODEL_DATA_FROM_ONNX_DATA_ON_MEMORY
+-- | make 'ModelData' from on-memory 'BS.ByteString'.
+makeModelDataFromByteString :: MonadIO m => BS.ByteString -> m ModelData
+makeModelDataFromByteString b = liftIO $ BS.useAsCStringLen b $ \(p,len) -> alloca $ \ret -> do  
+  runMenoh $ Base.menoh_make_model_data_from_onnx_data_on_memory p (fromIntegral len) ret
+  liftM ModelData $ newForeignPtr Base.menoh_delete_model_data_funptr =<< peek ret
+#endif
 
 -- | Optimize function for 'ModelData'.
 --

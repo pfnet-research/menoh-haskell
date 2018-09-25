@@ -1,4 +1,5 @@
 {-# OPTIONS_GHC -Wall #-}
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
 
@@ -7,6 +8,7 @@ import qualified Codec.Picture.Types as Picture
 import Control.Concurrent.Async
 import Control.Exception
 import Control.Monad
+import qualified Data.ByteString as BS
 import qualified Data.Vector as V
 import qualified Data.Vector.Generic as VG
 import qualified Data.Vector.Storable as VS
@@ -179,6 +181,20 @@ loadMNISTModel batch_size = do
   optimizeModelData model_data vpt
   makeModel vpt model_data "mkldnn"
 
+#ifdef HAVE_MENOH_MAKE_MODEL_DATA_FROM_ONNX_DATA_ON_MEMORY
+loadMNISTModelFromByteString :: Int -> IO Model
+loadMNISTModelFromByteString batch_size = do
+  dataDir <- getDataDir
+  b <- BS.readFile $ dataDir </> "data" </> "mnist.onnx"
+  model_data <- makeModelDataFromByteString b
+  vpt <- makeVariableProfileTable
+           [(mnist_in_name, DTypeFloat, [batch_size, mnist_channel_num, mnist_height, mnist_width])]
+           [(mnist_out_name, DTypeFloat)]
+           model_data
+  optimizeModelData model_data vpt
+  makeModel vpt model_data "mkldnn"
+#endif
+
 case_MNIST :: Assertion
 case_MNIST = do
   images <- loadMNISTImages
@@ -220,6 +236,28 @@ case_MNIST_concurrently = do
       forM_ (zip [0..9] vs) $ \(i, scores) -> do
         V.maxIndex scores @?= i
   return ()
+
+case_makeModelDataFromByteString :: Assertion
+case_makeModelDataFromByteString = do
+#ifndef HAVE_MENOH_MAKE_MODEL_DATA_FROM_ONNX_DATA_ON_MEMORY
+  return () -- XXX
+#else
+  images <- loadMNISTImages
+  model1 <- loadMNISTModel (length images)
+  model2 <- loadMNISTModelFromByteString (length images)
+
+  -- Run the model (1)
+  writeBuffer model1 mnist_in_name images
+  run model1
+  (vs1 :: [V.Vector Float]) <- readBuffer model1 mnist_out_name
+
+  -- Run the model (2)
+  writeBuffer model2 mnist_in_name images
+  run model2
+  (vs2 :: [V.Vector Float]) <- readBuffer model2 mnist_out_name
+
+  vs2 @?= vs1
+#endif
 
 ------------------------------------------------------------------------
 -- Test harness

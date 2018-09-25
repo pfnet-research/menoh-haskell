@@ -33,6 +33,11 @@ flag buildexamples
   default: True
   manual: True
 
+flag libmenoh_1_1_0
+  description: menoh >=1.1.0
+  default: False
+  manual: False
+
 library
   hs-source-dirs: src
   exposed-modules:
@@ -56,6 +61,9 @@ library
     , vector >=0.10 && <0.13
   pkgconfig-depends:
       menoh >=1.0.0 && <2.0.0
+  if flag(libmenoh_1_1_0)
+    pkgconfig-depends: menoh >=1.1.0
+    cpp-options: -DHAVE_MENOH_MAKE_MODEL_DATA_FROM_ONNX_DATA_ON_MEMORY
   default-language: Haskell2010
 
 executable vgg16_example
@@ -95,6 +103,7 @@ Test-suite Test
     Paths_menoh
   build-depends:
       base >=4 && <5
+    , bytestring
     , async >=2.0.2
     , filepath >=1.3 && <1.5
     , JuicyPixels

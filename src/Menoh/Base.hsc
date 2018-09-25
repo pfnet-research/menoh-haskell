@@ -58,6 +58,11 @@ type MenohModelDataHandle = Ptr MenohModelData
 foreign import ccall safe menoh_make_model_data_from_onnx
   :: CString -> Ptr MenohModelDataHandle -> IO MenohErrorCode
 
+#ifdef HAVE_MENOH_MAKE_MODEL_DATA_FROM_ONNX_DATA_ON_MEMORY
+foreign import ccall safe menoh_make_model_data_from_onnx_data_on_memory
+  :: Ptr a -> Int32 -> Ptr MenohModelDataHandle -> IO MenohErrorCode
+#endif
+
 foreign import ccall "&menoh_delete_model_data" menoh_delete_model_data_funptr
   :: FunPtr (MenohModelDataHandle -> IO ())
 
