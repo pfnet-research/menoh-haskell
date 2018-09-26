@@ -163,6 +163,37 @@ foreign import ccall unsafe menoh_model_get_variable_dims_at
 foreign import ccall safe menoh_model_run
   :: MenohModelHandle -> IO MenohErrorCode
 
+#if MIN_VERSION_libmenoh(1,1,0)
+
+foreign import ccall unsafe menoh_make_model_data
+  :: Ptr MenohModelDataHandle -> IO MenohErrorCode
+
+foreign import ccall safe menoh_model_data_add_parameter
+  :: MenohModelDataHandle -> CString -> MenohDType -> Int32 -> Ptr Int32 -> Ptr a -> IO MenohErrorCode
+
+foreign import ccall unsafe menoh_model_data_add_new_node
+  :: MenohModelDataHandle -> CString -> IO MenohErrorCode
+
+foreign import ccall unsafe menoh_model_data_add_input_name_to_current_node
+  :: MenohModelDataHandle -> CString -> IO MenohErrorCode
+
+foreign import ccall unsafe menoh_model_data_add_output_name_to_current_node
+  :: MenohModelDataHandle -> CString -> IO MenohErrorCode
+
+foreign import ccall unsafe menoh_model_data_add_attribute_int_to_current_node
+  :: MenohModelDataHandle -> CString -> Int32 -> IO MenohErrorCode
+
+foreign import ccall unsafe menoh_model_data_add_attribute_float_to_current_node
+  :: MenohModelDataHandle -> CString -> CFloat -> IO MenohErrorCode
+
+foreign import ccall unsafe menoh_model_data_add_attribute_ints_to_current_node
+  :: MenohModelDataHandle -> CString -> Int32 -> Ptr CInt -> IO MenohErrorCode
+
+foreign import ccall unsafe menoh_model_data_add_attribute_floats_to_current_node
+  :: MenohModelDataHandle -> CString -> Int32 -> Ptr CFloat -> IO MenohErrorCode
+
+#endif
+
 menoh_major_version :: Int
 menoh_major_version = #const MENOH_MAJOR_VERSION
 

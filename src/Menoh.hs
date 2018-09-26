@@ -75,6 +75,16 @@ module Menoh
   , makeModelDataFromByteString
 #endif
   , optimizeModelData
+#if MIN_VERSION_libmenoh(1,1,0)
+  -- ** Manual construction API
+  , makeModelData
+  , addParamterFromPtr
+  , addNewNode
+  , addInputNameToCurrentNode
+  , addOutputNameToCurrentNode
+  , AttributeType (..)
+  , addAttribute
+#endif
 
   -- * VariableProfileTable
   , VariableProfileTable (..)
@@ -289,6 +299,69 @@ optimizeModelData :: MonadIO m => ModelData -> VariableProfileTable -> m ()
 optimizeModelData (ModelData m) (VariableProfileTable vpt) = liftIO $
   withForeignPtr m $ \m' -> withForeignPtr vpt $ \vpt' ->
     runMenoh $ Base.menoh_model_data_optimize m' vpt'
+
+#if MIN_VERSION_libmenoh(1,1,0)
+
+-- | Make empty model_data
+makeModelData :: MonadIO m => m ModelData
+makeModelData = liftIO $ alloca $ \ret -> do
+  runMenoh $ Base.menoh_make_model_data ret
+  liftM ModelData $ newForeignPtr Base.menoh_delete_model_data_funptr =<< peek ret
+
+-- | Add a new parameter in model_data
+--
+-- Duplication of parameter_name is not allowed and it throws error.
+addParamterFromPtr :: MonadIO m => ModelData -> String -> DType -> Dims -> Ptr a -> m ()
+addParamterFromPtr (ModelData m) name dtype dims p = liftIO $
+  withForeignPtr m $ \m' -> withCString name $ \name' -> withArrayLen (map fromIntegral dims) $ \n dims' ->
+    runMenoh $ Base.menoh_model_data_add_parameter m' name' (fromIntegral (fromEnum dtype)) (fromIntegral n) dims' p
+
+-- | Add a new node to model_data
+addNewNode :: MonadIO m => ModelData -> String -> m ()
+addNewNode (ModelData m) name = liftIO $
+  withForeignPtr m $ \m' -> withCString name $ \name' ->
+    runMenoh $ Base.menoh_model_data_add_new_node m' name'
+
+-- | Add a new input name to latest added node in model_data
+addInputNameToCurrentNode :: MonadIO m => ModelData -> String -> m ()
+addInputNameToCurrentNode (ModelData m) name = liftIO $
+  withForeignPtr m $ \m' -> withCString name $ \name' ->
+    runMenoh $ Base.menoh_model_data_add_input_name_to_current_node m' name'
+
+-- | Add a new output name to latest added node in model_data
+addOutputNameToCurrentNode :: MonadIO m => ModelData -> String -> m ()
+addOutputNameToCurrentNode (ModelData m) name = liftIO $
+  withForeignPtr m $ \m' -> withCString name $ \name' ->
+    runMenoh $ Base.menoh_model_data_add_output_name_to_current_node m' name'
+
+class AttributeType value where
+  basicAddAttribute :: Ptr Base.MenohModelData -> CString -> value -> IO ()
+
+instance AttributeType Int where
+  basicAddAttribute m' name' value =
+    runMenoh $ Base.menoh_model_data_add_attribute_int_to_current_node m' name' (fromIntegral value)
+
+instance AttributeType Float where
+  basicAddAttribute m' name' value =
+    runMenoh $ Base.menoh_model_data_add_attribute_float_to_current_node m' name' (realToFrac value)
+
+instance AttributeType [Int] where
+  basicAddAttribute m' name' values =
+    withArrayLen (map fromIntegral values) $ \n values' ->
+      runMenoh $ Base.menoh_model_data_add_attribute_ints_to_current_node m' name' (fromIntegral n) values'
+
+instance AttributeType [Float] where
+  basicAddAttribute m' name' values =
+    withArrayLen (map realToFrac values) $ \n values' ->
+      runMenoh $ Base.menoh_model_data_add_attribute_floats_to_current_node m' name' (fromIntegral n) values'
+
+-- | Add a new attribute to latest added node in model_data
+addAttribute :: (AttributeType value, MonadIO m) => ModelData -> String -> value -> m ()
+addAttribute (ModelData m) name value = liftIO $
+  withForeignPtr m $ \m' -> withCString name $ \name' ->
+    basicAddAttribute m' name' value
+
+#endif
 
 -- ------------------------------------------------------------------------
 

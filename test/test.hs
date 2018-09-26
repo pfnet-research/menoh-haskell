@@ -266,6 +266,37 @@ case_makeModelDataFromByteString = do
   vs2 @?= vs1
 #endif
 
+case_makeModelData :: Assertion
+case_makeModelData = do
+#if !MIN_VERSION_libmenoh(1,1,0)
+  return () -- XXX
+#else
+  md <- makeModelData
+  withArray [1,2,3,4,5,6] $ \(p :: Ptr Float) ->
+    addParamterFromPtr md "W" DTypeFloat [2,3] p
+  withArray [7,8] $ \(p :: Ptr Float) ->
+    addParamterFromPtr md "b" DTypeFloat [2] p
+  addNewNode md "FC"
+  addInputNameToCurrentNode md "input"
+  addInputNameToCurrentNode md "W"
+  addInputNameToCurrentNode md "b"
+  addOutputNameToCurrentNode md "output"
+
+  vpt <- makeVariableProfileTable
+         [("input", DTypeFloat, [1, 3])]
+         [("output", DTypeFloat)]
+         md
+
+  optimizeModelData md vpt
+  m <- makeModel vpt md "mkldnn"
+
+  writeBuffer m "input" $ [VS.fromList [1::Float,2,3]]
+  run m
+  [r] <- readBuffer m "output"
+
+  r @?= VS.fromList [21::Float,40]
+#endif
+
 ------------------------------------------------------------------------
 -- Test harness
 
