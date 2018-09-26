@@ -89,6 +89,11 @@ foreign import ccall "&menoh_delete_variable_profile_table_builder"
   menoh_delete_variable_profile_table_builder_funptr
   :: FunPtr (MenohVariableProfileTableBuilderHandle -> IO ())
 
+#if MIN_VERSION_libmenoh(1,1,0)
+foreign import ccall unsafe menoh_variable_profile_table_builder_add_input_profile
+  :: MenohVariableProfileTableBuilderHandle -> CString -> MenohDType -> Int32 -> Ptr Int32 -> IO MenohErrorCode
+#endif
+
 foreign import ccall unsafe menoh_variable_profile_table_builder_add_input_profile_dims_2
   :: MenohVariableProfileTableBuilderHandle -> CString -> MenohDType -> Int32 -> Int32 -> IO MenohErrorCode
 

@@ -303,11 +303,19 @@ makeVariableProfileTableBuilder = liftIO $ alloca $ \p -> do
   liftM VariableProfileTableBuilder $ newForeignPtr Base.menoh_delete_variable_profile_table_builder_funptr =<< peek p
 
 addInputProfileDims :: MonadIO m => VariableProfileTableBuilder -> String -> DType -> Dims -> m ()
+#if MIN_VERSION_libmenoh(1,1,0)
+addInputProfileDims (VariableProfileTableBuilder vpt) name dtype dims =
+  liftIO $
+    withForeignPtr vpt $ \vpt' -> withCString name $ \name' -> withArrayLen (map fromIntegral dims) $ \n dims' ->
+      runMenoh $ Base.menoh_variable_profile_table_builder_add_input_profile
+        vpt' name' (fromIntegral (fromEnum dtype)) (fromIntegral n) dims'
+#else
 addInputProfileDims vpt name dtype dims =
   case dims of
     [num, size] -> addInputProfileDims2 vpt name dtype (num, size)
     [num, channel, height, width] -> addInputProfileDims4 vpt name dtype (num, channel, height, width)
     _ -> liftIO $ throwIO $ ErrorDimensionMismatch $ "Menoh.addInputProfileDims: cannot handle dims of length " ++ show (length dims)
+#endif
 
 -- | Add 2D input profile.
 --
