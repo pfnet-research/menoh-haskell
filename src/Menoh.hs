@@ -52,6 +52,15 @@
 --   its unsafety.
 --
 -----------------------------------------------------------------------------
+
+#include "MachDeps.h"
+#include <menoh/version.h>
+
+#define MIN_VERSION_libmenoh(major,minor,patch) (\
+  (major) <  MENOH_MAJOR_VERSION || \
+  (major) == MENOH_MAJOR_VERSION && (minor) <  MENOH_MINOR_VERSION || \
+  (major) == MENOH_MAJOR_VERSION && (minor) == MENOH_MINOR_VERSION && (patch) <= MENOH_PATCH_VERSION)
+
 module Menoh
   (
   -- * Basic data types
@@ -62,7 +71,7 @@ module Menoh
   -- * ModelData type
   , ModelData (..)
   , makeModelDataFromONNX
-#ifdef HAVE_MENOH_MAKE_MODEL_DATA_FROM_ONNX_DATA_ON_MEMORY
+#if MIN_VERSION_libmenoh(1,1,0)
   , makeModelDataFromByteString
 #endif
   , optimizeModelData
@@ -141,8 +150,6 @@ import Foreign.C
 
 import qualified Menoh.Base as Base
 import qualified Paths_menoh
-
-#include "MachDeps.h"
 
 -- ------------------------------------------------------------------------
 
@@ -255,7 +262,7 @@ makeModelDataFromONNX fpath = liftIO $ withCString fpath $ \fpath' -> alloca $ \
   runMenoh $ Base.menoh_make_model_data_from_onnx fpath' ret
   liftM ModelData $ newForeignPtr Base.menoh_delete_model_data_funptr =<< peek ret
 
-#ifdef HAVE_MENOH_MAKE_MODEL_DATA_FROM_ONNX_DATA_ON_MEMORY
+#if MIN_VERSION_libmenoh(1,1,0)
 -- | make 'ModelData' from on-memory 'BS.ByteString'.
 makeModelDataFromByteString :: MonadIO m => BS.ByteString -> m ModelData
 makeModelDataFromByteString b = liftIO $ BS.useAsCStringLen b $ \(p,len) -> alloca $ \ret -> do  

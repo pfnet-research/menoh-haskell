@@ -22,6 +22,13 @@ import Test.Tasty.TH
 import Menoh
 import Paths_menoh (getDataDir)
 
+#include <menoh/version.h>
+
+#define MIN_VERSION_libmenoh(major,minor,patch) (\
+  (major) <  MENOH_MAJOR_VERSION || \
+  (major) == MENOH_MAJOR_VERSION && (minor) <  MENOH_MINOR_VERSION || \
+  (major) == MENOH_MAJOR_VERSION && (minor) == MENOH_MINOR_VERSION && (patch) <= MENOH_PATCH_VERSION)
+
 ------------------------------------------------------------------------
 
 case_basicWriteBuffer_vector ::  Assertion
@@ -181,7 +188,7 @@ loadMNISTModel batch_size = do
   optimizeModelData model_data vpt
   makeModel vpt model_data "mkldnn"
 
-#ifdef HAVE_MENOH_MAKE_MODEL_DATA_FROM_ONNX_DATA_ON_MEMORY
+#if MIN_VERSION_libmenoh(1,1,0)
 loadMNISTModelFromByteString :: Int -> IO Model
 loadMNISTModelFromByteString batch_size = do
   dataDir <- getDataDir
@@ -239,7 +246,7 @@ case_MNIST_concurrently = do
 
 case_makeModelDataFromByteString :: Assertion
 case_makeModelDataFromByteString = do
-#ifndef HAVE_MENOH_MAKE_MODEL_DATA_FROM_ONNX_DATA_ON_MEMORY
+#if !MIN_VERSION_libmenoh(1,1,0)
   return () -- XXX
 #else
   images <- loadMNISTImages

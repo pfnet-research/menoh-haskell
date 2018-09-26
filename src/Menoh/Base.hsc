@@ -24,6 +24,11 @@ import Foreign.C
 #include <menoh/menoh.h>
 #include <menoh/version.h>
 
+#define MIN_VERSION_libmenoh(major,minor,patch) (\
+  (major) <  MENOH_MAJOR_VERSION || \
+  (major) == MENOH_MAJOR_VERSION && (minor) <  MENOH_MINOR_VERSION || \
+  (major) == MENOH_MAJOR_VERSION && (minor) == MENOH_MINOR_VERSION && (patch) <= MENOH_PATCH_VERSION)
+
 type MenohDType = #type menoh_dtype
 
 type MenohErrorCode = #type menoh_error_code
@@ -58,7 +63,7 @@ type MenohModelDataHandle = Ptr MenohModelData
 foreign import ccall safe menoh_make_model_data_from_onnx
   :: CString -> Ptr MenohModelDataHandle -> IO MenohErrorCode
 
-#ifdef HAVE_MENOH_MAKE_MODEL_DATA_FROM_ONNX_DATA_ON_MEMORY
+#if MIN_VERSION_libmenoh(1,1,0)
 foreign import ccall safe menoh_make_model_data_from_onnx_data_on_memory
   :: Ptr a -> Int32 -> Ptr MenohModelDataHandle -> IO MenohErrorCode
 #endif
