@@ -171,6 +171,12 @@ data Error
   | ErrorFailedToConfigureOperator String
   | ErrorBackendError String
   | ErrorSameNamedVariableAlreadyExist String
+#if MIN_VERSION_libmenoh(1,1,0)
+  | UnsupportedInputDims String
+  | SameNamedParameterAlreadyExist String
+  | SameNamedAttributeAlreadyExist String
+  | InvalidBackendConfigError String
+#endif
   deriving (Eq, Ord, Show, Read, Typeable)
 
 instance Exception Error
@@ -204,6 +210,12 @@ runMenoh m = runInBoundThread' $ do
       , (Base.menohErrorCodeFailedToConfigureOperator     , ErrorFailedToConfigureOperator)
       , (Base.menohErrorCodeBackendError                  , ErrorBackendError)
       , (Base.menohErrorCodeSameNamedVariableAlreadyExist , ErrorSameNamedVariableAlreadyExist)
+#if MIN_VERSION_libmenoh(1,1,0)
+      , (Base.menohErrorCodeUnsupportedInputDims          , UnsupportedInputDims)
+      , (Base.menohErrorCodeSameNamedParameterAlreadyExist, SameNamedParameterAlreadyExist)
+      , (Base.menohErrorCodeSameNamedAttributeAlreadyExist, SameNamedAttributeAlreadyExist)
+      , (Base.menohErrorCodeInvalidBackendConfigError     , InvalidBackendConfigError)
+#endif
       ]
 
 runInBoundThread' :: IO a -> IO a

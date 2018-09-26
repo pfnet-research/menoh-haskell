@@ -54,6 +54,14 @@ type MenohErrorCode = #type menoh_error_code
     menoh_error_code_backend_error, \
     menoh_error_code_same_named_variable_already_exist
 
+#if MIN_VERSION_libmenoh(1,1,0)
+#enum MenohErrorCode,, \
+    menoh_error_code_unsupported_input_dims, \
+    menoh_error_code_same_named_parameter_already_exist, \
+    menoh_error_code_same_named_attribute_already_exist, \
+    menoh_error_code_invalid_backend_config_error
+#endif
+
 foreign import ccall unsafe menoh_get_last_error_message
   :: IO CString
 
