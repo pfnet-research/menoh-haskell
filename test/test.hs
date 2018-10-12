@@ -119,12 +119,20 @@ case_bad_input = do
 
   dataDir <- getDataDir
   model_data <- makeModelDataFromONNX $ dataDir </> "data" </> "mnist.onnx"
-  vpt <- makeVariableProfileTable
+  ret <- try $ makeVariableProfileTable
            [ (mnist_in_name, DTypeFloat, [length images, mnist_channel_num, mnist_height, mnist_width])
            , ("bad input name", DTypeFloat, [1,8])
            ]
            [(mnist_out_name, DTypeFloat)]
            model_data
+#if MIN_VERSION_libmenoh(1,1,0)
+  case ret of
+    Left (InputNotFoundError _msg) -> return ()
+    _ -> assertFailure "should throw InputNotFoundError"
+#else
+  vpt <- case ret of
+           Left (err :: Error) -> throwIO err
+           Right vpt -> return vpt
   optimizeModelData model_data vpt
   model <- makeModel vpt model_data "mkldnn"
 
@@ -134,6 +142,7 @@ case_bad_input = do
   (vs :: [V.Vector Float]) <- readBuffer model mnist_out_name
   forM_ (zip [0..9] vs) $ \(i, scores) -> do
     V.maxIndex scores @?= i
+#endif
 
 
 case_bad_output :: Assertion
@@ -147,9 +156,13 @@ case_bad_output = do
     [(mnist_out_name, DTypeFloat), ("bad output name", DTypeFloat)]
     model_data
   case ret of
+#if MIN_VERSION_libmenoh(1,1,0)
+    Left (OutputNotFoundError _msg) -> return ()
+    _ -> assertFailure "should throw OutputNotFoundError"
+#else
     Left (ErrorVariableNotFound _msg) -> return ()
     _ -> assertFailure "should throw ErrorVariableNotFound"
-
+#endif
 
 ------------------------------------------------------------------------
 

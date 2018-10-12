@@ -186,6 +186,8 @@ data Error
   | SameNamedParameterAlreadyExist String
   | SameNamedAttributeAlreadyExist String
   | InvalidBackendConfigError String
+  | InputNotFoundError String
+  | OutputNotFoundError String
 #endif
   deriving (Eq, Ord, Show, Read, Typeable)
 
@@ -225,6 +227,8 @@ runMenoh m = runInBoundThread' $ do
       , (Base.menohErrorCodeSameNamedParameterAlreadyExist, SameNamedParameterAlreadyExist)
       , (Base.menohErrorCodeSameNamedAttributeAlreadyExist, SameNamedAttributeAlreadyExist)
       , (Base.menohErrorCodeInvalidBackendConfigError     , InvalidBackendConfigError)
+      , (Base.menohErrorCodeInputNotFoundError            , InputNotFoundError)
+      , (Base.menohErrorCodeOutputNotFoundError           , OutputNotFoundError)
 #endif
       ]
 
