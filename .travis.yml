@@ -39,8 +39,8 @@ env:
   global:
     - MKL_DNN_REV: v0.16
     - MKL_DNN_INSTALL_SUFFIX: -0.16
-    - MENOH_REV: v1.0.3
-    - MENOH_INSTALL_SUFFIX: -1.0.3
+    - MENOH_REV: v1.1.1
+    - MENOH_INSTALL_SUFFIX: -1.1.1
 
 # Caching so the next build will be fast too.
 cache:
