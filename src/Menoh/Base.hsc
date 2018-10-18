@@ -105,6 +105,11 @@ foreign import ccall unsafe menoh_variable_profile_table_builder_add_input_profi
 foreign import ccall unsafe menoh_variable_profile_table_builder_add_output_profile
   :: MenohVariableProfileTableBuilderHandle -> CString -> MenohDType -> IO MenohErrorCode
 
+#if MIN_VERSION_libmenoh(1,1,0)
+foreign import ccall unsafe menoh_variable_profile_table_builder_add_output_name
+  :: MenohVariableProfileTableBuilderHandle -> CString -> IO MenohErrorCode
+#endif
+
 data MenohVariableProfileTable
 type MenohVariableProfileTableHandle = Ptr MenohVariableProfileTable
 

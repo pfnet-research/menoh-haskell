@@ -125,6 +125,9 @@ module Menoh
   , makeVariableProfileTableBuilder
   , addInputProfileDims2
   , addInputProfileDims4
+#if MIN_VERSION_libmenoh(1,1,0)
+  , addOutputName
+#endif
   , addOutputProfile
   , buildVariableProfileTable
 
@@ -430,6 +433,22 @@ addInputProfileDims4 (VariableProfileTableBuilder vpt) name dtype (num, channel,
     runMenoh $ Base.menoh_variable_profile_table_builder_add_input_profile_dims_4
       vpt' name' (fromIntegral (fromEnum dtype))
       (fromIntegral num) (fromIntegral channel) (fromIntegral height) (fromIntegral width)
+
+#if MIN_VERSION_libmenoh(1,1,0)
+
+-- | Add output name
+--
+-- Output profile contains name and dtype. Its 'Dims' and 'DType' are calculated
+-- automatically, so that you don't need to specify explicitly.
+addOutputName :: MonadIO m => VariableProfileTableBuilder -> String -> m ()
+addOutputName (VariableProfileTableBuilder vpt) name = liftIO $
+  withForeignPtr vpt $ \vpt' -> withCString name $ \name' ->
+    runMenoh $ Base.menoh_variable_profile_table_builder_add_output_name
+      vpt' name'
+
+{-# DEPRECATED addOutputProfile "use addOutputName instead" #-}
+
+#endif
 
 -- | Add output profile
 --
