@@ -398,6 +398,7 @@ addInputProfileDims vpt name dtype dims =
 --
 -- Input profile contains name, dtype and dims @(num, size)@.
 -- This 2D input is conventional batched 1D inputs.
+{-# DEPRECATED addInputProfileDims2 "use addInputProfileDims instead" #-}
 addInputProfileDims2
   :: MonadIO m
   => VariableProfileTableBuilder
@@ -416,6 +417,7 @@ addInputProfileDims2 (VariableProfileTableBuilder vpt) name dtype (num, size) = 
 -- Input profile contains name, dtype and dims @(num, channel, height, width)@.
 -- This 4D input is conventional batched image inputs. Image input is
 -- 3D (channel, height, width).
+{-# DEPRECATED addInputProfileDims4 "use addInputProfileDims instead" #-}
 addInputProfileDims4
   :: MonadIO m
   => VariableProfileTableBuilder
