@@ -22,6 +22,13 @@ import Test.Tasty.TH
 import Menoh
 import Paths_menoh (getDataDir)
 
+#include <menoh/version.h>
+
+#define MIN_VERSION_libmenoh(major,minor,patch) (\
+  (major) <  MENOH_MAJOR_VERSION || \
+  (major) == MENOH_MAJOR_VERSION && (minor) <  MENOH_MINOR_VERSION || \
+  (major) == MENOH_MAJOR_VERSION && (minor) == MENOH_MINOR_VERSION && (patch) <= MENOH_PATCH_VERSION)
+
 ------------------------------------------------------------------------
 
 case_basicWriteBuffer_vector ::  Assertion
@@ -112,12 +119,20 @@ case_bad_input = do
 
   dataDir <- getDataDir
   model_data <- makeModelDataFromONNX $ dataDir </> "data" </> "mnist.onnx"
-  vpt <- makeVariableProfileTable
+  ret <- try $ makeVariableProfileTable
            [ (mnist_in_name, DTypeFloat, [length images, mnist_channel_num, mnist_height, mnist_width])
            , ("bad input name", DTypeFloat, [1,8])
            ]
            [(mnist_out_name, DTypeFloat)]
            model_data
+#if MIN_VERSION_libmenoh(1,1,0)
+  case ret of
+    Left (InputNotFoundError _msg) -> return ()
+    _ -> assertFailure "should throw InputNotFoundError"
+#else
+  vpt <- case ret of
+           Left (err :: Error) -> throwIO err
+           Right vpt -> return vpt
   optimizeModelData model_data vpt
   model <- makeModel vpt model_data "mkldnn"
 
@@ -127,6 +142,7 @@ case_bad_input = do
   (vs :: [V.Vector Float]) <- readBuffer model mnist_out_name
   forM_ (zip [0..9] vs) $ \(i, scores) -> do
     V.maxIndex scores @?= i
+#endif
 
 
 case_bad_output :: Assertion
@@ -140,9 +156,13 @@ case_bad_output = do
     [(mnist_out_name, DTypeFloat), ("bad output name", DTypeFloat)]
     model_data
   case ret of
+#if MIN_VERSION_libmenoh(1,1,0)
+    Left (OutputNotFoundError _msg) -> return ()
+    _ -> assertFailure "should throw OutputNotFoundError"
+#else
     Left (ErrorVariableNotFound _msg) -> return ()
     _ -> assertFailure "should throw ErrorVariableNotFound"
-
+#endif
 
 ------------------------------------------------------------------------
 
@@ -181,7 +201,7 @@ loadMNISTModel batch_size = do
   optimizeModelData model_data vpt
   makeModel vpt model_data "mkldnn"
 
-#ifdef HAVE_MENOH_MAKE_MODEL_DATA_FROM_ONNX_DATA_ON_MEMORY
+#if MIN_VERSION_libmenoh(1,1,0)
 loadMNISTModelFromByteString :: Int -> IO Model
 loadMNISTModelFromByteString batch_size = do
   dataDir <- getDataDir
@@ -239,7 +259,7 @@ case_MNIST_concurrently = do
 
 case_makeModelDataFromByteString :: Assertion
 case_makeModelDataFromByteString = do
-#ifndef HAVE_MENOH_MAKE_MODEL_DATA_FROM_ONNX_DATA_ON_MEMORY
+#if !MIN_VERSION_libmenoh(1,1,0)
   return () -- XXX
 #else
   images <- loadMNISTImages
@@ -257,6 +277,37 @@ case_makeModelDataFromByteString = do
   (vs2 :: [V.Vector Float]) <- readBuffer model2 mnist_out_name
 
   vs2 @?= vs1
+#endif
+
+case_makeModelData :: Assertion
+case_makeModelData = do
+#if !MIN_VERSION_libmenoh(1,1,0)
+  return () -- XXX
+#else
+  md <- makeModelData
+  withArray [1,2,3,4,5,6] $ \(p :: Ptr Float) ->
+    addParamterFromPtr md "W" DTypeFloat [2,3] p
+  withArray [7,8] $ \(p :: Ptr Float) ->
+    addParamterFromPtr md "b" DTypeFloat [2] p
+  addNewNode md "FC"
+  addInputNameToCurrentNode md "input"
+  addInputNameToCurrentNode md "W"
+  addInputNameToCurrentNode md "b"
+  addOutputNameToCurrentNode md "output"
+
+  vpt <- makeVariableProfileTable
+         [("input", DTypeFloat, [1, 3])]
+         [("output", DTypeFloat)]
+         md
+
+  optimizeModelData md vpt
+  m <- makeModel vpt md "mkldnn"
+
+  writeBuffer m "input" $ [VS.fromList [1::Float,2,3]]
+  run m
+  [r] <- readBuffer m "output"
+
+  r @?= VS.fromList [21::Float,40]
 #endif
 
 ------------------------------------------------------------------------

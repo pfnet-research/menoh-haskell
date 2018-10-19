@@ -52,6 +52,15 @@
 --   its unsafety.
 --
 -----------------------------------------------------------------------------
+
+#include "MachDeps.h"
+#include <menoh/version.h>
+
+#define MIN_VERSION_libmenoh(major,minor,patch) (\
+  (major) <  MENOH_MAJOR_VERSION || \
+  (major) == MENOH_MAJOR_VERSION && (minor) <  MENOH_MINOR_VERSION || \
+  (major) == MENOH_MAJOR_VERSION && (minor) == MENOH_MINOR_VERSION && (patch) <= MENOH_PATCH_VERSION)
+
 module Menoh
   (
   -- * Basic data types
@@ -62,10 +71,20 @@ module Menoh
   -- * ModelData type
   , ModelData (..)
   , makeModelDataFromONNX
-#ifdef HAVE_MENOH_MAKE_MODEL_DATA_FROM_ONNX_DATA_ON_MEMORY
+#if MIN_VERSION_libmenoh(1,1,0)
   , makeModelDataFromByteString
 #endif
   , optimizeModelData
+#if MIN_VERSION_libmenoh(1,1,0)
+  -- ** Manual construction API
+  , makeModelData
+  , addParamterFromPtr
+  , addNewNode
+  , addInputNameToCurrentNode
+  , addOutputNameToCurrentNode
+  , AttributeType (..)
+  , addAttribute
+#endif
 
   -- * VariableProfileTable
   , VariableProfileTable (..)
@@ -106,6 +125,9 @@ module Menoh
   , makeVariableProfileTableBuilder
   , addInputProfileDims2
   , addInputProfileDims4
+#if MIN_VERSION_libmenoh(1,1,0)
+  , addOutputName
+#endif
   , addOutputProfile
   , buildVariableProfileTable
 
@@ -142,8 +164,6 @@ import Foreign.C
 import qualified Menoh.Base as Base
 import qualified Paths_menoh
 
-#include "MachDeps.h"
-
 -- ------------------------------------------------------------------------
 
 -- | Functions in this module can throw this exception type.
@@ -164,6 +184,14 @@ data Error
   | ErrorFailedToConfigureOperator String
   | ErrorBackendError String
   | ErrorSameNamedVariableAlreadyExist String
+#if MIN_VERSION_libmenoh(1,1,0)
+  | UnsupportedInputDims String
+  | SameNamedParameterAlreadyExist String
+  | SameNamedAttributeAlreadyExist String
+  | InvalidBackendConfigError String
+  | InputNotFoundError String
+  | OutputNotFoundError String
+#endif
   deriving (Eq, Ord, Show, Read, Typeable)
 
 instance Exception Error
@@ -197,6 +225,14 @@ runMenoh m = runInBoundThread' $ do
       , (Base.menohErrorCodeFailedToConfigureOperator     , ErrorFailedToConfigureOperator)
       , (Base.menohErrorCodeBackendError                  , ErrorBackendError)
       , (Base.menohErrorCodeSameNamedVariableAlreadyExist , ErrorSameNamedVariableAlreadyExist)
+#if MIN_VERSION_libmenoh(1,1,0)
+      , (Base.menohErrorCodeUnsupportedInputDims          , UnsupportedInputDims)
+      , (Base.menohErrorCodeSameNamedParameterAlreadyExist, SameNamedParameterAlreadyExist)
+      , (Base.menohErrorCodeSameNamedAttributeAlreadyExist, SameNamedAttributeAlreadyExist)
+      , (Base.menohErrorCodeInvalidBackendConfigError     , InvalidBackendConfigError)
+      , (Base.menohErrorCodeInputNotFoundError            , InputNotFoundError)
+      , (Base.menohErrorCodeOutputNotFoundError           , OutputNotFoundError)
+#endif
       ]
 
 runInBoundThread' :: IO a -> IO a
@@ -255,7 +291,7 @@ makeModelDataFromONNX fpath = liftIO $ withCString fpath $ \fpath' -> alloca $ \
   runMenoh $ Base.menoh_make_model_data_from_onnx fpath' ret
   liftM ModelData $ newForeignPtr Base.menoh_delete_model_data_funptr =<< peek ret
 
-#ifdef HAVE_MENOH_MAKE_MODEL_DATA_FROM_ONNX_DATA_ON_MEMORY
+#if MIN_VERSION_libmenoh(1,1,0)
 -- | make 'ModelData' from on-memory 'BS.ByteString'.
 makeModelDataFromByteString :: MonadIO m => BS.ByteString -> m ModelData
 makeModelDataFromByteString b = liftIO $ BS.useAsCStringLen b $ \(p,len) -> alloca $ \ret -> do  
@@ -271,6 +307,69 @@ optimizeModelData (ModelData m) (VariableProfileTable vpt) = liftIO $
   withForeignPtr m $ \m' -> withForeignPtr vpt $ \vpt' ->
     runMenoh $ Base.menoh_model_data_optimize m' vpt'
 
+#if MIN_VERSION_libmenoh(1,1,0)
+
+-- | Make empty model_data
+makeModelData :: MonadIO m => m ModelData
+makeModelData = liftIO $ alloca $ \ret -> do
+  runMenoh $ Base.menoh_make_model_data ret
+  liftM ModelData $ newForeignPtr Base.menoh_delete_model_data_funptr =<< peek ret
+
+-- | Add a new parameter in model_data
+--
+-- Duplication of parameter_name is not allowed and it throws error.
+addParamterFromPtr :: MonadIO m => ModelData -> String -> DType -> Dims -> Ptr a -> m ()
+addParamterFromPtr (ModelData m) name dtype dims p = liftIO $
+  withForeignPtr m $ \m' -> withCString name $ \name' -> withArrayLen (map fromIntegral dims) $ \n dims' ->
+    runMenoh $ Base.menoh_model_data_add_parameter m' name' (fromIntegral (fromEnum dtype)) (fromIntegral n) dims' p
+
+-- | Add a new node to model_data
+addNewNode :: MonadIO m => ModelData -> String -> m ()
+addNewNode (ModelData m) name = liftIO $
+  withForeignPtr m $ \m' -> withCString name $ \name' ->
+    runMenoh $ Base.menoh_model_data_add_new_node m' name'
+
+-- | Add a new input name to latest added node in model_data
+addInputNameToCurrentNode :: MonadIO m => ModelData -> String -> m ()
+addInputNameToCurrentNode (ModelData m) name = liftIO $
+  withForeignPtr m $ \m' -> withCString name $ \name' ->
+    runMenoh $ Base.menoh_model_data_add_input_name_to_current_node m' name'
+
+-- | Add a new output name to latest added node in model_data
+addOutputNameToCurrentNode :: MonadIO m => ModelData -> String -> m ()
+addOutputNameToCurrentNode (ModelData m) name = liftIO $
+  withForeignPtr m $ \m' -> withCString name $ \name' ->
+    runMenoh $ Base.menoh_model_data_add_output_name_to_current_node m' name'
+
+class AttributeType value where
+  basicAddAttribute :: Ptr Base.MenohModelData -> CString -> value -> IO ()
+
+instance AttributeType Int where
+  basicAddAttribute m' name' value =
+    runMenoh $ Base.menoh_model_data_add_attribute_int_to_current_node m' name' (fromIntegral value)
+
+instance AttributeType Float where
+  basicAddAttribute m' name' value =
+    runMenoh $ Base.menoh_model_data_add_attribute_float_to_current_node m' name' (realToFrac value)
+
+instance AttributeType [Int] where
+  basicAddAttribute m' name' values =
+    withArrayLen (map fromIntegral values) $ \n values' ->
+      runMenoh $ Base.menoh_model_data_add_attribute_ints_to_current_node m' name' (fromIntegral n) values'
+
+instance AttributeType [Float] where
+  basicAddAttribute m' name' values =
+    withArrayLen (map realToFrac values) $ \n values' ->
+      runMenoh $ Base.menoh_model_data_add_attribute_floats_to_current_node m' name' (fromIntegral n) values'
+
+-- | Add a new attribute to latest added node in model_data
+addAttribute :: (AttributeType value, MonadIO m) => ModelData -> String -> value -> m ()
+addAttribute (ModelData m) name value = liftIO $
+  withForeignPtr m $ \m' -> withCString name $ \name' ->
+    basicAddAttribute m' name' value
+
+#endif
+
 -- ------------------------------------------------------------------------
 
 -- | Builder for creation of 'VariableProfileTable'.
@@ -284,16 +383,25 @@ makeVariableProfileTableBuilder = liftIO $ alloca $ \p -> do
   liftM VariableProfileTableBuilder $ newForeignPtr Base.menoh_delete_variable_profile_table_builder_funptr =<< peek p
 
 addInputProfileDims :: MonadIO m => VariableProfileTableBuilder -> String -> DType -> Dims -> m ()
+#if MIN_VERSION_libmenoh(1,1,0)
+addInputProfileDims (VariableProfileTableBuilder vpt) name dtype dims =
+  liftIO $
+    withForeignPtr vpt $ \vpt' -> withCString name $ \name' -> withArrayLen (map fromIntegral dims) $ \n dims' ->
+      runMenoh $ Base.menoh_variable_profile_table_builder_add_input_profile
+        vpt' name' (fromIntegral (fromEnum dtype)) (fromIntegral n) dims'
+#else
 addInputProfileDims vpt name dtype dims =
   case dims of
     [num, size] -> addInputProfileDims2 vpt name dtype (num, size)
     [num, channel, height, width] -> addInputProfileDims4 vpt name dtype (num, channel, height, width)
     _ -> liftIO $ throwIO $ ErrorDimensionMismatch $ "Menoh.addInputProfileDims: cannot handle dims of length " ++ show (length dims)
+#endif
 
 -- | Add 2D input profile.
 --
 -- Input profile contains name, dtype and dims @(num, size)@.
 -- This 2D input is conventional batched 1D inputs.
+{-# DEPRECATED addInputProfileDims2 "use addInputProfileDims instead" #-}
 addInputProfileDims2
   :: MonadIO m
   => VariableProfileTableBuilder
@@ -312,6 +420,7 @@ addInputProfileDims2 (VariableProfileTableBuilder vpt) name dtype (num, size) = 
 -- Input profile contains name, dtype and dims @(num, channel, height, width)@.
 -- This 4D input is conventional batched image inputs. Image input is
 -- 3D (channel, height, width).
+{-# DEPRECATED addInputProfileDims4 "use addInputProfileDims instead" #-}
 addInputProfileDims4
   :: MonadIO m
   => VariableProfileTableBuilder
@@ -324,6 +433,22 @@ addInputProfileDims4 (VariableProfileTableBuilder vpt) name dtype (num, channel,
     runMenoh $ Base.menoh_variable_profile_table_builder_add_input_profile_dims_4
       vpt' name' (fromIntegral (fromEnum dtype))
       (fromIntegral num) (fromIntegral channel) (fromIntegral height) (fromIntegral width)
+
+#if MIN_VERSION_libmenoh(1,1,0)
+
+-- | Add output name
+--
+-- Output profile contains name and dtype. Its 'Dims' and 'DType' are calculated
+-- automatically, so that you don't need to specify explicitly.
+addOutputName :: MonadIO m => VariableProfileTableBuilder -> String -> m ()
+addOutputName (VariableProfileTableBuilder vpt) name = liftIO $
+  withForeignPtr vpt $ \vpt' -> withCString name $ \name' ->
+    runMenoh $ Base.menoh_variable_profile_table_builder_add_output_name
+      vpt' name'
+
+{-# DEPRECATED addOutputProfile "use addOutputName instead" #-}
+
+#endif
 
 -- | Add output profile
 --
