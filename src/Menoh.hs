@@ -129,6 +129,7 @@ module Menoh
   , addOutputName
 #endif
   , addOutputProfile
+  , AddOutput (..)
   , buildVariableProfileTable
 
   -- ** Builder for 'Model'
@@ -460,6 +461,25 @@ addOutputProfile (VariableProfileTableBuilder vpt) name dtype = liftIO $
     runMenoh $ Base.menoh_variable_profile_table_builder_add_output_profile
       vpt' name' (fromIntegral (fromEnum dtype))
 
+-- | Type class for abstracting 'addOutputProfile' and 'addOutputName'.
+class AddOutput a where
+  addOutput :: VariableProfileTableBuilder -> a -> IO ()
+
+#if MIN_VERSION_libmenoh(1,1,0)
+
+instance AddOutput String where
+  addOutput = addOutputName
+
+instance AddOutput (String, DType) where
+  addOutput b (name,_dtype) = addOutputName b name
+
+#else
+
+instance AddOutput (String, DType) where
+  addOutput = uncurry addOutputProfile
+
+#endif
+
 -- | Factory function for 'VariableProfileTable'
 buildVariableProfileTable
   :: MonadIO m
@@ -483,17 +503,16 @@ newtype VariableProfileTable
 --
 -- If you need finer control, you can use 'VariableProfileTableBuidler'.
 makeVariableProfileTable
-  :: MonadIO m
+  :: (AddOutput a, MonadIO m)
   => [(String, DType, Dims)]  -- ^ input names with dtypes and dims
-  -> [(String, DType)]        -- ^ required output name list with dtypes
+  -> [a]                      -- ^ required output informations (@`String`@ or @('String', 'DType')@)
   -> ModelData                -- ^ model data
   -> m VariableProfileTable
 makeVariableProfileTable input_name_and_dims_pair_list required_output_name_list model_data = liftIO $ runInBoundThread' $ do
   b <- makeVariableProfileTableBuilder
   forM_ input_name_and_dims_pair_list $ \(name,dtype,dims) -> do
     addInputProfileDims b name dtype dims
-  forM_ required_output_name_list $ \(name,dtype) -> do
-    addOutputProfile b name dtype
+  mapM_ (addOutput b) required_output_name_list
   buildVariableProfileTable b model_data
 
 -- | Accessor function for 'VariableProfileTable'
