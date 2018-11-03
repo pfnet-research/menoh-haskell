@@ -54,7 +54,7 @@ main = do
   -- Specify inputs and outputs
   vpt <- makeVariableProfileTable
            [(mnist_in_name, DTypeFloat, input_dims)]
-           [(mnist_out_name, DTypeFloat)]
+           [mnist_out_name]
            model_data
   optimizeModelData model_data vpt
 

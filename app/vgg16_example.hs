@@ -47,7 +47,7 @@ main = do
   -- Specify inputs and outputs
   vpt <- makeVariableProfileTable
            [(conv1_1_in_name, DTypeFloat, input_dims)]
-           [(fc6_out_name, DTypeFloat), (softmax_out_name, DTypeFloat)]
+           [fc6_out_name, softmax_out_name]
            model_data
   optimizeModelData model_data vpt
 
