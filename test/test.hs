@@ -87,7 +87,11 @@ case_empty_output = do
   model_data <- makeModelDataFromONNX $ dataDir </> "data" </> "mnist.onnx"
   vpt <- makeVariableProfileTable
            [(mnist_in_name, DTypeFloat, [batch_size, mnist_channel_num, mnist_height, mnist_width])]
-           []
+#if MIN_VERSION_libmenoh(1,1,0)
+           ([] :: [String])
+#else
+           ([] :: [(String, DType)])
+#endif
            model_data
   optimizeModelData model_data vpt
   model <- makeModel vpt model_data "mkldnn"
