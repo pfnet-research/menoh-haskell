@@ -52,17 +52,13 @@ type MenohErrorCode = #type menoh_error_code
     menoh_error_code_unsupported_operator, \
     menoh_error_code_failed_to_configure_operator, \
     menoh_error_code_backend_error, \
-    menoh_error_code_same_named_variable_already_exist
-
-#if MIN_VERSION_libmenoh(1,1,0)
-#enum MenohErrorCode,, \
+    menoh_error_code_same_named_variable_already_exist, \
     menoh_error_code_unsupported_input_dims, \
     menoh_error_code_same_named_parameter_already_exist, \
     menoh_error_code_same_named_attribute_already_exist, \
     menoh_error_code_invalid_backend_config_error, \
     menoh_error_code_input_not_found_error, \
     menoh_error_code_output_not_found_error
-#endif
 
 foreign import ccall unsafe menoh_get_last_error_message
   :: IO CString
@@ -73,10 +69,8 @@ type MenohModelDataHandle = Ptr MenohModelData
 foreign import ccall safe menoh_make_model_data_from_onnx
   :: CString -> Ptr MenohModelDataHandle -> IO MenohErrorCode
 
-#if MIN_VERSION_libmenoh(1,1,0)
 foreign import ccall safe menoh_make_model_data_from_onnx_data_on_memory
   :: Ptr a -> Int32 -> Ptr MenohModelDataHandle -> IO MenohErrorCode
-#endif
 
 foreign import ccall "&menoh_delete_model_data" menoh_delete_model_data_funptr
   :: FunPtr (MenohModelDataHandle -> IO ())
@@ -91,10 +85,8 @@ foreign import ccall "&menoh_delete_variable_profile_table_builder"
   menoh_delete_variable_profile_table_builder_funptr
   :: FunPtr (MenohVariableProfileTableBuilderHandle -> IO ())
 
-#if MIN_VERSION_libmenoh(1,1,0)
 foreign import ccall unsafe menoh_variable_profile_table_builder_add_input_profile
   :: MenohVariableProfileTableBuilderHandle -> CString -> MenohDType -> Int32 -> Ptr Int32 -> IO MenohErrorCode
-#endif
 
 foreign import ccall unsafe menoh_variable_profile_table_builder_add_input_profile_dims_2
   :: MenohVariableProfileTableBuilderHandle -> CString -> MenohDType -> Int32 -> Int32 -> IO MenohErrorCode
@@ -105,10 +97,8 @@ foreign import ccall unsafe menoh_variable_profile_table_builder_add_input_profi
 foreign import ccall unsafe menoh_variable_profile_table_builder_add_output_profile
   :: MenohVariableProfileTableBuilderHandle -> CString -> MenohDType -> IO MenohErrorCode
 
-#if MIN_VERSION_libmenoh(1,1,0)
 foreign import ccall unsafe menoh_variable_profile_table_builder_add_output_name
   :: MenohVariableProfileTableBuilderHandle -> CString -> IO MenohErrorCode
-#endif
 
 data MenohVariableProfileTable
 type MenohVariableProfileTableHandle = Ptr MenohVariableProfileTable
@@ -170,8 +160,6 @@ foreign import ccall unsafe menoh_model_get_variable_dims_at
 foreign import ccall safe menoh_model_run
   :: MenohModelHandle -> IO MenohErrorCode
 
-#if MIN_VERSION_libmenoh(1,1,0)
-
 foreign import ccall unsafe menoh_make_model_data
   :: Ptr MenohModelDataHandle -> IO MenohErrorCode
 
@@ -198,8 +186,6 @@ foreign import ccall unsafe menoh_model_data_add_attribute_ints_to_current_node
 
 foreign import ccall unsafe menoh_model_data_add_attribute_floats_to_current_node
   :: MenohModelDataHandle -> CString -> Int32 -> Ptr CFloat -> IO MenohErrorCode
-
-#endif
 
 menoh_major_version :: Int
 menoh_major_version = #const MENOH_MAJOR_VERSION

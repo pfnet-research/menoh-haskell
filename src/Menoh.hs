@@ -71,11 +71,8 @@ module Menoh
   -- * ModelData type
   , ModelData (..)
   , makeModelDataFromONNX
-#if MIN_VERSION_libmenoh(1,1,0)
   , makeModelDataFromByteString
-#endif
   , optimizeModelData
-#if MIN_VERSION_libmenoh(1,1,0)
   -- ** Manual construction API
   , makeModelData
   , addParamterFromPtr
@@ -84,7 +81,6 @@ module Menoh
   , addOutputNameToCurrentNode
   , AttributeType (..)
   , addAttribute
-#endif
 
   -- * VariableProfileTable
   , VariableProfileTable (..)
@@ -125,9 +121,7 @@ module Menoh
   , makeVariableProfileTableBuilder
   , addInputProfileDims2
   , addInputProfileDims4
-#if MIN_VERSION_libmenoh(1,1,0)
   , addOutputName
-#endif
   , addOutputProfile
   , AddOutput (..)
   , buildVariableProfileTable
@@ -185,14 +179,12 @@ data Error
   | ErrorFailedToConfigureOperator String
   | ErrorBackendError String
   | ErrorSameNamedVariableAlreadyExist String
-#if MIN_VERSION_libmenoh(1,1,0)
   | UnsupportedInputDims String
   | SameNamedParameterAlreadyExist String
   | SameNamedAttributeAlreadyExist String
   | InvalidBackendConfigError String
   | InputNotFoundError String
   | OutputNotFoundError String
-#endif
   deriving (Eq, Ord, Show, Read, Typeable)
 
 instance Exception Error
@@ -226,14 +218,12 @@ runMenoh m = runInBoundThread' $ do
       , (Base.menohErrorCodeFailedToConfigureOperator     , ErrorFailedToConfigureOperator)
       , (Base.menohErrorCodeBackendError                  , ErrorBackendError)
       , (Base.menohErrorCodeSameNamedVariableAlreadyExist , ErrorSameNamedVariableAlreadyExist)
-#if MIN_VERSION_libmenoh(1,1,0)
       , (Base.menohErrorCodeUnsupportedInputDims          , UnsupportedInputDims)
       , (Base.menohErrorCodeSameNamedParameterAlreadyExist, SameNamedParameterAlreadyExist)
       , (Base.menohErrorCodeSameNamedAttributeAlreadyExist, SameNamedAttributeAlreadyExist)
       , (Base.menohErrorCodeInvalidBackendConfigError     , InvalidBackendConfigError)
       , (Base.menohErrorCodeInputNotFoundError            , InputNotFoundError)
       , (Base.menohErrorCodeOutputNotFoundError           , OutputNotFoundError)
-#endif
       ]
 
 runInBoundThread' :: IO a -> IO a
@@ -292,13 +282,11 @@ makeModelDataFromONNX fpath = liftIO $ withCString fpath $ \fpath' -> alloca $ \
   runMenoh $ Base.menoh_make_model_data_from_onnx fpath' ret
   liftM ModelData $ newForeignPtr Base.menoh_delete_model_data_funptr =<< peek ret
 
-#if MIN_VERSION_libmenoh(1,1,0)
 -- | make 'ModelData' from on-memory 'BS.ByteString'.
 makeModelDataFromByteString :: MonadIO m => BS.ByteString -> m ModelData
 makeModelDataFromByteString b = liftIO $ BS.useAsCStringLen b $ \(p,len) -> alloca $ \ret -> do  
   runMenoh $ Base.menoh_make_model_data_from_onnx_data_on_memory p (fromIntegral len) ret
   liftM ModelData $ newForeignPtr Base.menoh_delete_model_data_funptr =<< peek ret
-#endif
 
 -- | Optimize function for 'ModelData'.
 --
@@ -307,8 +295,6 @@ optimizeModelData :: MonadIO m => ModelData -> VariableProfileTable -> m ()
 optimizeModelData (ModelData m) (VariableProfileTable vpt) = liftIO $
   withForeignPtr m $ \m' -> withForeignPtr vpt $ \vpt' ->
     runMenoh $ Base.menoh_model_data_optimize m' vpt'
-
-#if MIN_VERSION_libmenoh(1,1,0)
 
 -- | Make empty model_data
 makeModelData :: MonadIO m => m ModelData
@@ -369,8 +355,6 @@ addAttribute (ModelData m) name value = liftIO $
   withForeignPtr m $ \m' -> withCString name $ \name' ->
     basicAddAttribute m' name' value
 
-#endif
-
 -- ------------------------------------------------------------------------
 
 -- | Builder for creation of 'VariableProfileTable'.
@@ -384,19 +368,11 @@ makeVariableProfileTableBuilder = liftIO $ alloca $ \p -> do
   liftM VariableProfileTableBuilder $ newForeignPtr Base.menoh_delete_variable_profile_table_builder_funptr =<< peek p
 
 addInputProfileDims :: MonadIO m => VariableProfileTableBuilder -> String -> DType -> Dims -> m ()
-#if MIN_VERSION_libmenoh(1,1,0)
 addInputProfileDims (VariableProfileTableBuilder vpt) name dtype dims =
   liftIO $
     withForeignPtr vpt $ \vpt' -> withCString name $ \name' -> withArrayLen (map fromIntegral dims) $ \n dims' ->
       runMenoh $ Base.menoh_variable_profile_table_builder_add_input_profile
         vpt' name' (fromIntegral (fromEnum dtype)) (fromIntegral n) dims'
-#else
-addInputProfileDims vpt name dtype dims =
-  case dims of
-    [num, size] -> addInputProfileDims2 vpt name dtype (num, size)
-    [num, channel, height, width] -> addInputProfileDims4 vpt name dtype (num, channel, height, width)
-    _ -> liftIO $ throwIO $ ErrorDimensionMismatch $ "Menoh.addInputProfileDims: cannot handle dims of length " ++ show (length dims)
-#endif
 
 -- | Add 2D input profile.
 --
@@ -435,8 +411,6 @@ addInputProfileDims4 (VariableProfileTableBuilder vpt) name dtype (num, channel,
       vpt' name' (fromIntegral (fromEnum dtype))
       (fromIntegral num) (fromIntegral channel) (fromIntegral height) (fromIntegral width)
 
-#if MIN_VERSION_libmenoh(1,1,0)
-
 -- | Add output name
 --
 -- Output profile contains name and dtype. Its 'Dims' and 'DType' are calculated
@@ -448,9 +422,6 @@ addOutputName (VariableProfileTableBuilder vpt) name = liftIO $
       vpt' name'
 
 {-# DEPRECATED addOutputProfile "use addOutputName instead" #-}
-
-#endif
-
 -- | Add output profile
 --
 -- Output profile contains name and dtype. Its 'Dims' are calculated automatically,
@@ -465,20 +436,11 @@ addOutputProfile (VariableProfileTableBuilder vpt) name dtype = liftIO $
 class AddOutput a where
   addOutput :: VariableProfileTableBuilder -> a -> IO ()
 
-#if MIN_VERSION_libmenoh(1,1,0)
-
 instance AddOutput String where
   addOutput = addOutputName
 
 instance AddOutput (String, DType) where
   addOutput b (name,_dtype) = addOutputName b name
-
-#else
-
-instance AddOutput (String, DType) where
-  addOutput = uncurry addOutputProfile
-
-#endif
 
 -- | Factory function for 'VariableProfileTable'
 buildVariableProfileTable
