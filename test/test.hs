@@ -72,7 +72,7 @@ case_basicWriteBuffer_list = do
 case_loading_nonexistent_model_file :: Assertion
 case_loading_nonexistent_model_file = do
   dataDir <- getDataDir
-  ret <- try $ makeModelDataFromONNX $ dataDir </> "data" </> "nonexistent_model.onnx"
+  ret <- try $ makeModelDataFromONNXFile $ dataDir </> "data" </> "nonexistent_model.onnx"
   case ret of
     Left (ErrorInvalidFilename _msg) -> return ()
     _ -> assertFailure "should throw ErrorInvalidFilename"
@@ -84,7 +84,7 @@ case_empty_output = do
   let batch_size = length images
 
   dataDir <- getDataDir
-  model_data <- makeModelDataFromONNX $ dataDir </> "data" </> "mnist.onnx"
+  model_data <- makeModelDataFromONNXFile $ dataDir </> "data" </> "mnist.onnx"
   vpt <- makeVariableProfileTable
            [(mnist_in_name, DTypeFloat, [batch_size, mnist_channel_num, mnist_height, mnist_width])]
            ([] :: [String])
@@ -103,7 +103,7 @@ case_empty_output = do
 case_insufficient_input :: Assertion
 case_insufficient_input = do
   dataDir <- getDataDir
-  model_data <- makeModelDataFromONNX $ dataDir </> "data" </> "mnist.onnx"
+  model_data <- makeModelDataFromONNXFile $ dataDir </> "data" </> "mnist.onnx"
   ret <- try $ makeVariableProfileTable
     []
     [mnist_out_name]
@@ -118,7 +118,7 @@ case_bad_input = do
   images <- loadMNISTImages
 
   dataDir <- getDataDir
-  model_data <- makeModelDataFromONNX $ dataDir </> "data" </> "mnist.onnx"
+  model_data <- makeModelDataFromONNXFile $ dataDir </> "data" </> "mnist.onnx"
   ret <- try $ makeVariableProfileTable
            [ (mnist_in_name, DTypeFloat, [length images, mnist_channel_num, mnist_height, mnist_width])
            , ("bad input name", DTypeFloat, [1,8])
@@ -134,7 +134,7 @@ case_bad_output = do
   images <- loadMNISTImages
 
   dataDir <- getDataDir
-  model_data <- makeModelDataFromONNX $ dataDir </> "data" </> "mnist.onnx"
+  model_data <- makeModelDataFromONNXFile $ dataDir </> "data" </> "mnist.onnx"
   ret <- try $ makeVariableProfileTable
     [(mnist_in_name, DTypeFloat, [length images, mnist_channel_num, mnist_height, mnist_width])]
     [mnist_out_name, "bad output name"]
@@ -172,7 +172,7 @@ loadMNISTImages = do
 loadMNISTModel :: Int -> IO Model
 loadMNISTModel batch_size = do
   dataDir <- getDataDir
-  model_data <- makeModelDataFromONNX $ dataDir </> "data" </> "mnist.onnx"
+  model_data <- makeModelDataFromONNXFile $ dataDir </> "data" </> "mnist.onnx"
   vpt <- makeVariableProfileTable
            [(mnist_in_name, DTypeFloat, [batch_size, mnist_channel_num, mnist_height, mnist_width])]
            [mnist_out_name]
@@ -184,7 +184,7 @@ loadMNISTModelFromByteString :: Int -> IO Model
 loadMNISTModelFromByteString batch_size = do
   dataDir <- getDataDir
   b <- BS.readFile $ dataDir </> "data" </> "mnist.onnx"
-  model_data <- makeModelDataFromByteString b
+  model_data <- makeModelDataFromONNXByteString b
   vpt <- makeVariableProfileTable
            [(mnist_in_name, DTypeFloat, [batch_size, mnist_channel_num, mnist_height, mnist_width])]
            [mnist_out_name]
@@ -217,7 +217,7 @@ case_MNIST_concurrently = do
   let batch_size = length images
 
   dataDir <- getDataDir
-  model_data <- makeModelDataFromONNX $ dataDir </> "data" </> "mnist.onnx"
+  model_data <- makeModelDataFromONNXFile $ dataDir </> "data" </> "mnist.onnx"
   vpt <- makeVariableProfileTable
            [(mnist_in_name, DTypeFloat, [batch_size, mnist_channel_num, mnist_height, mnist_width])]
            [mnist_out_name]
@@ -234,8 +234,8 @@ case_MNIST_concurrently = do
         V.maxIndex scores @?= i
   return ()
 
-case_makeModelDataFromByteString :: Assertion
-case_makeModelDataFromByteString = do
+case_makeModelDataFromONNXByteString :: Assertion
+case_makeModelDataFromONNXByteString = do
   images <- loadMNISTImages
   model1 <- loadMNISTModel (length images)
   model2 <- loadMNISTModelFromByteString (length images)

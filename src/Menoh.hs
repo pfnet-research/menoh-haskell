@@ -18,7 +18,7 @@
 --
 -- = Basic usage
 --
--- 1. Load computation graph from ONNX file using 'makeModelDataFromONNX'.
+-- 1. Load computation graph from ONNX file using 'makeModelDataFromONNXFile'.
 -- 2. Specify input variable type/dimentions (in particular batch size) and
 --    which output variables you want to retrieve. This can be done by
 --    constructing 'VariableProfileTable' using 'makeVariableProfileTable'.
@@ -70,8 +70,9 @@ module Menoh
 
   -- * ModelData type
   , ModelData (..)
+  , makeModelDataFromONNXFile
   , makeModelDataFromONNX
-  , makeModelDataFromByteString
+  , makeModelDataFromONNXByteString
   , optimizeModelData
   -- ** Manual construction API
   , makeModelData
@@ -276,15 +277,20 @@ type Dims = [Int]
 -- | @ModelData@ contains model parameters and computation graph structure.
 newtype ModelData = ModelData (ForeignPtr Base.MenohModelData)
 
+{-# DEPRECATED makeModelDataFromONNX "use makeModelDataFromONNXFile instead" #-}
 -- | Load onnx file and make 'ModelData'.
 makeModelDataFromONNX :: MonadIO m => FilePath -> m ModelData
-makeModelDataFromONNX fpath = liftIO $ withCString fpath $ \fpath' -> alloca $ \ret -> do
+makeModelDataFromONNX = makeModelDataFromONNXFile
+
+-- | Load onnx file and make 'ModelData'.
+makeModelDataFromONNXFile :: MonadIO m => FilePath -> m ModelData
+makeModelDataFromONNXFile fpath = liftIO $ withCString fpath $ \fpath' -> alloca $ \ret -> do
   runMenoh $ Base.menoh_make_model_data_from_onnx fpath' ret
   liftM ModelData $ newForeignPtr Base.menoh_delete_model_data_funptr =<< peek ret
 
 -- | make 'ModelData' from on-memory 'BS.ByteString'.
-makeModelDataFromByteString :: MonadIO m => BS.ByteString -> m ModelData
-makeModelDataFromByteString b = liftIO $ BS.useAsCStringLen b $ \(p,len) -> alloca $ \ret -> do  
+makeModelDataFromONNXByteString :: MonadIO m => BS.ByteString -> m ModelData
+makeModelDataFromONNXByteString b = liftIO $ BS.useAsCStringLen b $ \(p,len) -> alloca $ \ret -> do  
   runMenoh $ Base.menoh_make_model_data_from_onnx_data_on_memory p (fromIntegral len) ret
   liftM ModelData $ newForeignPtr Base.menoh_delete_model_data_funptr =<< peek ret
 

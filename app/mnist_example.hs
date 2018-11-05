@@ -49,7 +49,7 @@ main = do
       mnist_out_name = "139898462888656"
 
   -- Load ONNX model data
-  model_data <- makeModelDataFromONNX (optModelPath opt)
+  model_data <- makeModelDataFromONNXFile (optModelPath opt)
 
   -- Specify inputs and outputs
   vpt <- makeVariableProfileTable
