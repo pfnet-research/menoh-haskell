@@ -310,6 +310,8 @@ makeModelData = liftIO $ alloca $ \ret -> do
 
 -- | Add a new parameter in 'ModelData'
 --
+-- This API is tentative and will be changed in the future.
+--
 -- Duplication of parameter_name is not allowed and it throws error.
 addParameterFromPtr :: MonadIO m => ModelData -> String -> DType -> Dims -> Ptr a -> m ()
 addParameterFromPtr (ModelData m) name dtype dims p = liftIO $
