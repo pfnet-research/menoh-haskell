@@ -334,6 +334,7 @@ addOutputNameToCurrentNode (ModelData m) name = liftIO $
   withForeignPtr m $ \m' -> withCString name $ \name' ->
     runMenoh $ Base.menoh_model_data_add_output_name_to_current_node m' name'
 
+-- | A class of types that can be added to nodes using 'addAttribute'.
 class AttributeType value where
   basicAddAttribute :: Ptr Base.MenohModelData -> CString -> value -> IO ()
 
