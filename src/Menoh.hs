@@ -76,7 +76,7 @@ module Menoh
   , optimizeModelData
   -- ** Manual model data construction API
   , makeModelData
-  , addParamterFromPtr
+  , addParameterFromPtr
   , addNewNode
   , addInputNameToCurrentNode
   , addOutputNameToCurrentNode
@@ -311,8 +311,8 @@ makeModelData = liftIO $ alloca $ \ret -> do
 -- | Add a new parameter in 'ModelData'
 --
 -- Duplication of parameter_name is not allowed and it throws error.
-addParamterFromPtr :: MonadIO m => ModelData -> String -> DType -> Dims -> Ptr a -> m ()
-addParamterFromPtr (ModelData m) name dtype dims p = liftIO $
+addParameterFromPtr :: MonadIO m => ModelData -> String -> DType -> Dims -> Ptr a -> m ()
+addParameterFromPtr (ModelData m) name dtype dims p = liftIO $
   withForeignPtr m $ \m' -> withCString name $ \name' -> withArrayLen (map fromIntegral dims) $ \n dims' ->
     runMenoh $ Base.menoh_model_data_add_parameter m' name' (fromIntegral (fromEnum dtype)) (fromIntegral n) dims' p
 

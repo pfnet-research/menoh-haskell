@@ -256,9 +256,9 @@ case_makeModelData :: Assertion
 case_makeModelData = do
   md <- makeModelData
   withArray [1,2,3,4,5,6] $ \(p :: Ptr Float) ->
-    addParamterFromPtr md "W" DTypeFloat [2,3] p
+    addParameterFromPtr md "W" DTypeFloat [2,3] p
   withArray [7,8] $ \(p :: Ptr Float) ->
-    addParamterFromPtr md "b" DTypeFloat [2] p
+    addParameterFromPtr md "b" DTypeFloat [2] p
   addNewNode md "FC"
   addInputNameToCurrentNode md "input"
   addInputNameToCurrentNode md "W"
