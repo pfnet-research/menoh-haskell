@@ -74,7 +74,7 @@ module Menoh
   , makeModelDataFromONNX
   , makeModelDataFromONNXByteString
   , optimizeModelData
-  -- ** Manual construction API
+  -- ** Manual model data construction API
   , makeModelData
   , addParamterFromPtr
   , addNewNode
@@ -302,13 +302,13 @@ optimizeModelData (ModelData m) (VariableProfileTable vpt) = liftIO $
   withForeignPtr m $ \m' -> withForeignPtr vpt $ \vpt' ->
     runMenoh $ Base.menoh_model_data_optimize m' vpt'
 
--- | Make empty model_data
+-- | Make empty 'ModelData'
 makeModelData :: MonadIO m => m ModelData
 makeModelData = liftIO $ alloca $ \ret -> do
   runMenoh $ Base.menoh_make_model_data ret
   liftM ModelData $ newForeignPtr Base.menoh_delete_model_data_funptr =<< peek ret
 
--- | Add a new parameter in model_data
+-- | Add a new parameter in 'ModelData'
 --
 -- Duplication of parameter_name is not allowed and it throws error.
 addParamterFromPtr :: MonadIO m => ModelData -> String -> DType -> Dims -> Ptr a -> m ()
@@ -316,19 +316,19 @@ addParamterFromPtr (ModelData m) name dtype dims p = liftIO $
   withForeignPtr m $ \m' -> withCString name $ \name' -> withArrayLen (map fromIntegral dims) $ \n dims' ->
     runMenoh $ Base.menoh_model_data_add_parameter m' name' (fromIntegral (fromEnum dtype)) (fromIntegral n) dims' p
 
--- | Add a new node to model_data
+-- | Add a new node to 'ModelData'
 addNewNode :: MonadIO m => ModelData -> String -> m ()
 addNewNode (ModelData m) name = liftIO $
   withForeignPtr m $ \m' -> withCString name $ \name' ->
     runMenoh $ Base.menoh_model_data_add_new_node m' name'
 
--- | Add a new input name to latest added node in model_data
+-- | Add a new input name to latest added node in 'ModelData'
 addInputNameToCurrentNode :: MonadIO m => ModelData -> String -> m ()
 addInputNameToCurrentNode (ModelData m) name = liftIO $
   withForeignPtr m $ \m' -> withCString name $ \name' ->
     runMenoh $ Base.menoh_model_data_add_input_name_to_current_node m' name'
 
--- | Add a new output name to latest added node in model_data
+-- | Add a new output name to latest added node in 'ModelData'
 addOutputNameToCurrentNode :: MonadIO m => ModelData -> String -> m ()
 addOutputNameToCurrentNode (ModelData m) name = liftIO $
   withForeignPtr m $ \m' -> withCString name $ \name' ->
