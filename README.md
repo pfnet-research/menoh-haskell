@@ -35,13 +35,13 @@ Result is below
 
 ```
 vgg16 example
-fc6_out: -19.079105 -37.94045 -16.185831 25.51685 4.432623 ...
+fc6_out: -21.936756 -27.385506 -18.64326 16.917625 5.599732 ...
 top 5 categories are:
-8 0.958079 n01514859 hen
-7 0.039541963 n01514668 cock
-86 0.0018722217 n01807496 partridge
-82 0.00027406064 n01797886 ruffed grouse, partridge, Bonasa umbellus
-97 0.00003177848 n01847000 drake
+8 0.93506306 n01514859 hen
+7 0.05933844 n01514668 cock
+86 0.0033869066 n01807496 partridge
+82 0.0008452002 n01797886 ruffed grouse, partridge, Bonasa umbellus
+97 0.0003278699 n01847000 drake
 ```
 
 Please give `--help` option for details

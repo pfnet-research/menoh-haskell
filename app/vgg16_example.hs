@@ -37,9 +37,9 @@ main = do
           Right img -> convert width height img
 
   -- Aliases to onnx's node input and output tensor name
-  let conv1_1_in_name  = "140326425860192"
-      fc6_out_name     = "140326200777584"
-      softmax_out_name = "140326200803680"
+  let conv1_1_in_name  = "Input_0"
+      fc6_out_name     = "Gemm_0"
+      softmax_out_name = "Softmax_0"
 
   -- Load ONNX model data
   model_data <- makeModelDataFromONNX (optModelPath opt)
@@ -105,7 +105,7 @@ optionsParser = Options
       <> short 'm'
       <> metavar "PATH"
       <> help "onnx model path"
-      <> value "data/VGG16.onnx"
+      <> value "data/vgg16.onnx"
       <> showDefault
     synsetWordsPathOption = strOption
       $  long "synset-words"
@@ -145,7 +145,6 @@ resize (w,h) img = Picture.generateImage (\x y -> Picture.pixelAt img (x * orig_
     orig_w = Picture.imageWidth  img
     orig_h = Picture.imageHeight img
 
--- Note that VGG16.onnx assumes BGR image
 reorderToNCHW :: Picture.Image Picture.PixelRGB8 -> VS.Vector Float
 reorderToNCHW img = VS.generate (3 * Picture.imageHeight img * Picture.imageWidth img) f
   where
@@ -153,9 +152,9 @@ reorderToNCHW img = VS.generate (3 * Picture.imageHeight img * Picture.imageWidt
       case Picture.pixelAt img x y of
         Picture.PixelRGB8 r g b ->
           case ch of
-            0 -> fromIntegral b
-            1 -> fromIntegral g
-            2 -> fromIntegral r
+            0 -> fromIntegral r - 123.68
+            1 -> fromIntegral g - 116.779
+            2 -> fromIntegral b - 103.939
             _ -> undefined
       where
         (ch,m) = i `divMod` (Picture.imageWidth img * Picture.imageHeight img)
